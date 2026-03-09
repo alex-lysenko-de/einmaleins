@@ -1,0 +1,529 @@
+Нужно выполнить рефакторинг приложения, с целью превратить приложение в реальный развивающий проект, который можно выложить на Github и другие хостинги приложений: Microsoft Store, Google Store
+Основные цели рефакторинга:
+
+* **PWA**
+* **масштабирование режимов**
+* **чистый игровой движок**
+* **простоту поддержки**
+* **будущие версии (multiplayer, AI, новые уровни)**
+
+---
+
+# 1. Главный принцип архитектуры
+
+Самая важная идея:
+
+**игра ≠ интерфейс**
+
+Нужно разделить:
+
+```
+Game Engine
+Game State
+UI
+Infrastructure
+```
+
+---
+
+# 2. Общая структура проекта
+
+Production-структура может выглядеть так:
+
+```
+monster-apple-training/
+
+index.html
+vite.config.js
+package.json
+
+public/
+  manifest.json
+  icons/
+
+src/
+
+  main.js
+  App.vue
+
+  router/
+
+  ui/
+    screens/
+    components/
+
+  game/
+    engine/
+    mechanics/
+    state/
+    data/
+
+  services/
+
+  composables/
+
+  assets/
+
+  styles/
+```
+
+---
+
+# 3. Самое важное — папка game
+
+Тут живёт **движок игры**.
+
+```
+src/game
+```
+
+Структура:
+
+```
+game/
+
+engine/
+  GameEngine.js
+  GameLoop.js
+
+state/
+  gameState.js
+  playerState.js
+  monsterState.js
+
+mechanics/
+  battle.js
+  tasks.js
+  cards.js
+  buckets.js
+  scoring.js
+
+data/
+  monsters.js
+  levels.js
+
+audio/
+  audioEngine.js
+```
+
+---
+
+# 4. GameEngine (сердце игры)
+
+GameEngine управляет всей логикой.
+
+```
+src/game/engine/GameEngine.js
+```
+
+Пример:
+
+```javascript
+export class GameEngine {
+
+  constructor() {
+    this.state = null
+  }
+
+  startLevel(level) {
+    this.state = createGameState(level)
+  }
+
+  selectCard(card) {
+    return resolveCardSelection(this.state, card)
+  }
+
+  nextTask() {
+    return generateTask(this.state)
+  }
+
+}
+```
+
+UI **не знает** ничего о логике.
+
+UI просто вызывает:
+
+```
+engine.selectCard()
+```
+
+---
+
+# 5. Game State
+
+Отдельная модель состояния.
+
+```
+src/game/state/gameState.js
+```
+
+```javascript
+export function createGameState(level) {
+
+  return {
+    level,
+    monsterHP: 9,
+    playerHP: 9,
+    progress: 0,
+    cards: [],
+    currentTask: null,
+    visualMode: "rows"
+  }
+
+}
+```
+
+---
+
+# 6. Механики (самая важная часть)
+
+Каждая механика — отдельный файл.
+
+```
+mechanics/
+```
+
+### battle.js
+
+```
+applyDamage()
+checkVictory()
+```
+
+---
+
+### tasks.js
+
+```
+generateTask()
+validateAnswer()
+```
+
+---
+
+### cards.js
+
+```
+createCards()
+markSolved()
+```
+
+---
+
+### buckets.js
+
+твой алгоритм корзин:
+
+```
+buildBuckets()
+layoutBuckets()
+```
+
+---
+
+# 7. UI архитектура
+
+UI должен быть **тупым**.
+
+Он только отображает state.
+
+```
+src/ui
+```
+
+Структура:
+
+```
+ui/
+
+screens/
+  MenuScreen.vue
+  GameScreen.vue
+  VictoryScreen.vue
+
+components/
+  MonsterZone.vue
+  TaskZone.vue
+  CardsZone.vue
+  ProgressZone.vue
+  VisualizationRows.vue
+  VisualizationBuckets.vue
+```
+
+---
+
+# 8. Composables (Vue логика)
+
+Vue-логика отдельно:
+
+```
+src/composables
+```
+
+```
+useGame.js
+useAudio.js
+useConfetti.js
+```
+
+---
+
+### useGame
+
+```javascript
+import { GameEngine } from "../game/engine/GameEngine"
+
+const engine = new GameEngine()
+
+export function useGame() {
+
+  function start(level) {
+    engine.startLevel(level)
+  }
+
+  function selectCard(card) {
+    engine.selectCard(card)
+  }
+
+  return {
+    start,
+    selectCard
+  }
+}
+```
+
+---
+
+# 9. Data слой
+
+Все данные отдельно.
+
+```
+src/game/data
+```
+
+---
+
+### monsters.js
+
+```javascript
+export const monsters = [
+ { emoji:"👾", name:"Alien Grumpy" },
+ { emoji:"🧟", name:"Zombie Karl" }
+]
+```
+
+---
+
+### levels.js
+
+```javascript
+export const levels = [2,3,4,5,6,7,8,9]
+```
+
+---
+
+# 10. Audio Engine
+
+Ты уже используешь WebAudio.
+
+Это можно вынести:
+
+```
+src/game/audio/audioEngine.js
+```
+
+```
+playSuccess()
+playError()
+playVictory()
+```
+
+---
+
+# 11. Router
+
+Позволяет иметь URL:
+
+```
+/
+ /game
+ /victory
+```
+
+```
+src/router/index.js
+```
+
+---
+
+# 12. PWA слой
+
+```
+public/
+
+manifest.json
+icons/
+```
+
+vite-plugin-pwa автоматически создаёт:
+
+```
+service-worker.js
+```
+
+---
+
+# 13. Система режимов игры
+
+Очень важно сделать сразу.
+
+```
+state.mode
+```
+
+```
+mode:
+
+training
+duel
+flashcards
+speed
+```
+
+---
+
+# 14. Multiplayer архитектура (на будущее)
+
+Если появится режим дуэли:
+
+```
+services/
+
+multiplayerService.js
+```
+
+Можно использовать:
+
+```
+WebRTC
+или
+WebSocket
+```
+
+---
+
+# 15. Storage
+
+Для сохранения прогресса:
+
+```
+services/storageService.js
+```
+
+```
+localStorage
+IndexedDB
+```
+
+---
+
+# 16. Тесты
+
+Production проект должен иметь:
+
+```
+tests/
+
+engine.test.js
+battle.test.js
+tasks.test.js
+```
+
+Framework:
+
+```
+vitest
+```
+
+---
+
+# 17. Финальная структура
+
+Идеальная production структура:
+
+```
+src/
+
+game/
+  engine/
+  mechanics/
+  state/
+  data/
+  audio/
+
+ui/
+  screens/
+  components/
+
+composables/
+
+services/
+
+router/
+
+assets/
+
+styles/
+```
+
+---
+
+# 18. Дальнейшее развитие проекта
+
+В будущем планируется:
+
+### добавлять режимы
+
+```
+training
+duel
+speed
+flashcards
+```
+
+---
+
+### менять интерфейс
+
+например:
+
+```
+mobile
+tablet
+desktop
+```
+
+---
+
+### делать AI противника
+
+```
+ai/
+  monsterAI.js
+```
+
+---
+
+### добавлять новые игры
+
+например:
+
+```
+division
+fractions
+addition
+```
+
+---
