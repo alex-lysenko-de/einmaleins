@@ -1,0 +1,2228 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#4a6cf7">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Einmaleins">
+<meta name="description" content="Interaktives Einmaleins">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<title>Einmaleins</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.3.4/vue.global.prod.min.js"></script>
+<style>
+/* ─── Reset & Base ─────────────────────────────────────────────── */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: Arial, sans-serif;
+  background: #f4f6fb;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 100vh;
+  padding: 12px;
+}
+.container {
+  background: white;
+  padding: 12px;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+  width: min(calc(100vw - 24px), 600px);
+}
+h1 {
+  text-align: center;
+  margin-bottom: 20px;
+  color: #333;
+  font-size: clamp(16px, 4vw, 24px);
+}
+h1 .h1-sub {
+  font-size: 0.65em;
+  color: #4a6cf7;
+  display: block;
+}
+
+/* ─── Table ─────────────────────────────────────────────────────── */
+table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: clamp(10px, 2.2vw, 18px);
+}
+th, td {
+  aspect-ratio: 1;
+  text-align: center;
+  border: 1px solid #ccc;
+  padding: 0;
+}
+td.cell {
+  transition: transform 0.2s, box-shadow 0.2s, opacity 0.4s, background 0.3s;
+  cursor: default;
+  position: relative;
+}
+td.cell:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+  z-index: 1;
+}
+td.cell.dimmed { opacity: 0.3; }
+td.cell.highlighted {
+  opacity: 1 !important;
+  transform: scale(1.18);
+  z-index: 2;
+  box-shadow: 0 0 18px 4px rgba(74,108,247,0.55);
+  border: 2.5px solid #4a6cf7;
+}
+td.cell.highlighted .cell-inner {
+  font-weight: bold;
+  font-size: clamp(14px, 3vw, 22px);
+  color: #1a3bbf;
+}
+td.cell.row-active { opacity: 0.85; }
+td.cell.col-active { opacity: 0.85; }
+.corner { background: #f4f6fb; border: none; }
+
+/* ─── Header buttons (row/col toggles) ──────────────────────────── */
+.btn-header {
+  background: #e9eefc;
+  border: 1px solid #ccc;
+  font-size: clamp(10px, 2.2vw, 17px);
+  font-weight: bold;
+  width: 100%;
+  aspect-ratio: 1;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.2s, transform 0.15s, box-shadow 0.15s;
+  color: #333;
+  touch-action: manipulation;
+  padding: 0;
+}
+.btn-header:hover {
+  background: #d0d9f7;
+  transform: scale(1.08);
+  box-shadow: 0 3px 8px rgba(0,0,0,0.15);
+}
+.btn-header.active {
+  background: #4a6cf7;
+  color: white;
+  box-shadow: 0 4px 12px rgba(74,108,247,0.4);
+  transform: scale(1.08);
+}
+
+/* ─── Action Row ─────────────────────────────────────────────────── */
+.action-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.play-btn {
+  background: #4a6cf7;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 28px;
+  font-size: 17px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+  touch-action: manipulation;
+}
+.play-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 14px rgba(74,108,247,0.5);
+}
+/* Shared style for all icon-only buttons */
+.icon-btn {
+  background: #e9eefc;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  width: 46px;
+  height: 46px;
+  font-size: 20px;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s;
+  touch-action: manipulation;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+.icon-btn:hover { background: #d0d9f7; transform: scale(1.06); }
+
+/* ─── Game HUD ───────────────────────────────────────────────────── */
+.game-hud {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  padding: 8px 12px;
+  background: #f0f4ff;
+  border-radius: 8px;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.hud-lives { font-size: 17px; color: #e53e3e; white-space: nowrap; }
+.hud-score { font-size: 15px; font-weight: bold; color: #333; }
+.hud-campaign {
+  font-size: 12px;
+  font-weight: bold;
+  color: white;
+  background: #4a6cf7;
+  padding: 2px 8px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+.hud-combo {
+  background: #ff9f43;
+  color: white;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: bold;
+  white-space: nowrap;
+}
+.hud-timer {
+  font-size: 26px;
+  font-weight: bold;
+  color: #4a6cf7;
+  min-width: 32px;
+  text-align: center;
+  transition: color 0.3s;
+}
+.hud-timer.urgent {
+  color: #e53e3e;
+  animation: pulse-timer 0.5s ease-in-out infinite;
+}
+@keyframes pulse-timer {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.3); }
+}
+.hud-exit {
+  background: transparent;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 4px 8px;
+  color: #666;
+  touch-action: manipulation;
+}
+.hud-exit:hover { background: #eee; }
+
+/* ─── Question + Answers ─────────────────────────────────────────── */
+.question-area { margin-bottom: 14px; }
+.question-label {
+  text-align: center;
+  font-size: clamp(36px, 9vw, 56px);
+  font-weight: bold;
+  color: #1a3bbf;
+  margin-bottom: 14px;
+  letter-spacing: 2px;
+  text-shadow: 0 2px 8px rgba(74,108,247,0.15);
+}
+.answers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  animation: fade-in 0.3s ease;
+}
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.answer-btn {
+  min-width: 70px;
+  min-height: 70px;
+  font-size: clamp(18px, 4vw, 26px);
+  font-weight: bold;
+  border: 2px solid #ccc;
+  border-radius: 10px;
+  background: white;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s, background 0.15s, border-color 0.15s;
+  touch-action: manipulation;
+}
+.answer-btn:hover:not(:disabled) {
+  transform: scale(1.08);
+  box-shadow: 0 3px 10px rgba(0,0,0,0.15);
+  border-color: #4a6cf7;
+}
+.answer-btn.answer-correct {
+  background: #48bb78 !important;
+  border-color: #38a169 !important;
+  color: white;
+  transform: scale(1.1);
+}
+.answer-btn.answer-wrong {
+  background: #ed8936 !important;
+  border-color: #dd6b20 !important;
+  color: white;
+}
+.answer-btn:disabled { cursor: default; }
+
+/* ─── Overlays ───────────────────────────────────────────────────── */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: 12px;
+}
+.overlay-box {
+  background: white;
+  border-radius: 16px;
+  padding: 32px 36px;
+  text-align: center;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+  max-width: 380px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.overlay-box h2 {
+  font-size: clamp(20px, 5vw, 26px);
+  margin-bottom: 12px;
+  color: #333;
+}
+.final-score {
+  font-size: 18px;
+  color: #4a6cf7;
+  margin-bottom: 16px;
+  font-weight: bold;
+}
+.replay-btn {
+  background: #4a6cf7;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 28px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  margin: 6px;
+  touch-action: manipulation;
+  transition: opacity 0.15s, transform 0.15s;
+}
+.replay-btn:hover { opacity: 0.9; transform: scale(1.03); }
+.replay-btn:disabled { opacity: 0.4; cursor: default; transform: none; }
+.exit-btn {
+  background: #e2e8f0;
+  color: #333;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 20px;
+  font-size: 15px;
+  cursor: pointer;
+  margin: 6px;
+  touch-action: manipulation;
+}
+.exit-btn:hover { background: #cbd5e0; }
+.btn-row { margin-top: 8px; display: flex; flex-wrap: wrap; justify-content: center; }
+
+/* ─── Stats / Final screen ───────────────────────────────────────── */
+.final-stats {
+  margin: 10px 0 16px;
+  text-align: left;
+  background: #f4f6fb;
+  border-radius: 10px;
+  padding: 10px 16px;
+}
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 14px;
+  padding: 4px 0;
+  color: #555;
+}
+.stat-row strong { color: #333; }
+
+/* ─── Name prompt (inside result overlays) ───────────────────────── */
+.name-prompt {
+  margin: 12px 0;
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+.name-input {
+  flex: 1;
+  padding: 10px 12px;
+  font-size: 15px;
+  border: 2px solid #ccc;
+  border-radius: 8px;
+  outline: none;
+  transition: border-color 0.2s;
+  min-width: 0;
+}
+.name-input:focus { border-color: #4a6cf7; }
+.name-save-btn {
+  background: #4a6cf7;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 0.15s;
+}
+.name-save-btn:disabled { opacity: 0.4; cursor: default; }
+.name-save-btn:hover:not(:disabled) { opacity: 0.85; }
+.score-saved-badge {
+  background: #e6faf0;
+  border: 1px solid #48bb78;
+  color: #276749;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  margin: 8px 0;
+  text-align: center;
+}
+
+/* ─── Settings panel ─────────────────────────────────────────────── */
+.settings-box { text-align: left; }
+.settings-box h2 { text-align: center; }
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+.setting-label {
+  font-size: 14px;
+  color: #444;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.setting-control { display: flex; align-items: center; gap: 8px; }
+.slider { width: 110px; cursor: pointer; accent-color: #4a6cf7; }
+.setting-value {
+  font-weight: bold;
+  color: #4a6cf7;
+  min-width: 36px;
+  text-align: right;
+  font-size: 15px;
+}
+.range-select {
+  padding: 5px 8px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 15px;
+  font-weight: bold;
+  color: #333;
+  background: white;
+  cursor: pointer;
+}
+.range-sep { font-size: 16px; color: #999; font-weight: bold; }
+.settings-done { display: block; width: 100%; margin-top: 8px; }
+
+/* ─── Toggle switch ──────────────────────────────────────────────── */
+.toggle-switch { position: relative; display: inline-block; cursor: pointer; }
+.toggle-switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+.toggle-track {
+  display: inline-block;
+  width: 48px; height: 26px;
+  background: #ccc;
+  border-radius: 13px;
+  position: relative;
+  transition: background 0.25s;
+}
+.toggle-switch input:checked + .toggle-track { background: #4a6cf7; }
+.toggle-thumb {
+  position: absolute;
+  top: 3px; left: 3px;
+  width: 20px; height: 20px;
+  background: white;
+  border-radius: 50%;
+  transition: left 0.25s;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+}
+.toggle-switch input:checked + .toggle-track .toggle-thumb { left: 25px; }
+
+/* ─── Manual input / Numpad ──────────────────────────────────────── */
+.manual-input-area { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.manual-display {
+  font-size: clamp(28px, 7vw, 42px);
+  font-weight: bold;
+  min-width: 120px;
+  min-height: 60px;
+  background: #f4f6fb;
+  border: 2px solid #ccc;
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  letter-spacing: 2px;
+  transition: background 0.2s, border-color 0.2s;
+  color: #333;
+}
+.manual-display.display-correct { background: #e6faf0; border-color: #48bb78; }
+.manual-display.display-wrong   { background: #fff3e8; border-color: #ed8936; }
+.display-correct-val { color: #38a169; }
+.display-wrong-val   { color: #c05621; }
+.display-val { color: #4a6cf7; }
+.numpad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr) 1fr;
+  grid-template-rows: repeat(4, 1fr);
+  gap: 8px;
+  width: min(300px, 90vw);
+}
+.np-btn {
+  aspect-ratio: 1;
+  font-size: clamp(18px, 5vw, 26px);
+  font-weight: bold;
+  border: 2px solid #ccc;
+  border-radius: 10px;
+  background: white;
+  cursor: pointer;
+  transition: transform 0.1s, box-shadow 0.1s, background 0.1s;
+  touch-action: manipulation;
+  display: flex; align-items: center; justify-content: center;
+}
+.np-btn:hover:not(:disabled) {
+  background: #e9eefc;
+  border-color: #4a6cf7;
+  transform: scale(1.06);
+  box-shadow: 0 3px 8px rgba(74,108,247,0.2);
+}
+.np-btn:active:not(:disabled) { transform: scale(0.95); }
+.np-btn:disabled { opacity: 0.4; cursor: default; }
+.np-enter {
+  grid-column: 4;
+  grid-row: 1 / 4;
+  aspect-ratio: unset;
+  background: #4a6cf7;
+  color: white;
+  border-color: #3a5ce0;
+  font-size: clamp(22px, 5vw, 30px);
+}
+.np-enter:hover:not(:disabled) { background: #3a5ce0; border-color: #2a4cd0; }
+.np-zero { grid-column: 1 / 3; aspect-ratio: unset; height: 100%; }
+.np-del { grid-column: 3; background: #fef5e7; border-color: #ed8936; color: #c05621; }
+.np-del:hover:not(:disabled) { background: #fde8cc; border-color: #dd6b20; }
+
+/* ─── Campaign Selector ──────────────────────────────────────────── */
+.campaign-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 16px 0;
+}
+.campaign-level-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 4px;
+  border: 2px solid #ddd;
+  border-radius: 10px;
+  background: #f8f9fe;
+  cursor: pointer;
+  gap: 3px;
+  transition: background 0.2s, border-color 0.2s, transform 0.15s;
+  touch-action: manipulation;
+  min-height: 72px;
+}
+.campaign-level-btn:hover:not(:disabled) {
+  background: #e0e8ff;
+  border-color: #4a6cf7;
+  transform: scale(1.04);
+}
+.campaign-level-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.campaign-level-btn.completed {
+  background: #e6faf0;
+  border-color: #48bb78;
+}
+.campaign-level-btn.final-level {
+  grid-column: 1 / -1;
+  flex-direction: row;
+  gap: 12px;
+  padding: 12px 16px;
+  min-height: auto;
+}
+.cl-emoji { font-size: 20px; line-height: 1; }
+.cl-label { font-weight: bold; font-size: 13px; color: #333; }
+.cl-score { font-size: 11px; color: #38a169; font-weight: bold; }
+.cl-lock  { font-size: 13px; color: #aaa; }
+
+/* ─── Leaderboard ────────────────────────────────────────────────── */
+.leaderboard-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  margin: 10px 0 16px;
+  text-align: left;
+}
+.leaderboard-table th {
+  background: #f0f4ff;
+  padding: 6px 8px;
+  font-size: 11px;
+  color: #666;
+  font-weight: bold;
+  border-bottom: 2px solid #e0e8ff;
+}
+.leaderboard-table td {
+  padding: 8px 8px;
+  border-bottom: 1px solid #f0f0f0;
+  vertical-align: middle;
+}
+.leaderboard-table tbody tr:first-child td { color: #c05621; font-weight: bold; }
+.leaderboard-table tbody tr:nth-child(2) td { color: #744210; }
+.leaderboard-table tbody tr:nth-child(3) td { color: #744210; }
+.lb-rank { width: 28px; text-align: center; font-size: 16px; }
+.lb-name { font-weight: bold; color: #222; }
+.lb-score { font-weight: bold; color: #4a6cf7; text-align: right; }
+.lb-settings { font-size: 11px; color: #aaa; }
+.lb-empty { text-align: center; color: #aaa; padding: 20px; }
+.lb-tabs { display: flex; gap: 4px; margin-bottom: 12px; }
+.lb-tab {
+  flex: 1;
+  padding: 7px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: #f8f9fe;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: bold;
+  transition: background 0.15s;
+  touch-action: manipulation;
+}
+.lb-tab.active { background: #4a6cf7; color: white; border-color: #4a6cf7; }
+
+/* ─── Onboarding overlay ─────────────────────────────────────────── */
+.onboarding-box {
+  text-align: center;
+  padding: 36px 32px 28px;
+}
+.onboarding-box .ob-emoji { font-size: 52px; margin-bottom: 12px; }
+.onboarding-box h2 { font-size: clamp(20px, 5vw, 26px); margin-bottom: 8px; color: #333; }
+.onboarding-box p  { font-size: 14px; color: #666; margin-bottom: 22px; line-height: 1.5; }
+.onboarding-input {
+  width: 100%;
+  padding: 14px 16px;
+  font-size: 18px;
+  border: 2px solid #ccc;
+  border-radius: 10px;
+  outline: none;
+  text-align: center;
+  margin-bottom: 16px;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+.onboarding-input:focus { border-color: #4a6cf7; }
+.onboarding-btn {
+  width: 100%;
+  background: #4a6cf7;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  padding: 14px;
+  font-size: 17px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.15s;
+}
+.onboarding-btn:disabled { opacity: 0.4; cursor: default; }
+.onboarding-btn:hover:not(:disabled) { opacity: 0.9; transform: scale(1.02); }
+
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  background: #4a6cf7;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  font-size: 14px;
+  z-index: 100;
+  box-shadow: 0 -4px 16px rgba(0,0,0,0.2);
+}
+#install-banner button {
+  background: white;
+  color: #4a6cf7;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-weight: bold;
+  cursor: pointer;
+  margin-left: 10px;
+  font-size: 14px;
+}
+#install-banner .dismiss {
+  background: transparent;
+  color: rgba(255,255,255,0.7);
+  font-size: 20px;
+  padding: 4px 8px;
+}
+</style>
+</head>
+<body>
+<div id="app" @keydown="handleKeydown" tabindex="0">
+
+  <!-- ── Onboarding (first launch) ─────────────────────────────── -->
+  <div v-if="showOnboarding" class="overlay" style="z-index:500">
+    <div class="overlay-box onboarding-box">
+      <div class="ob-emoji">👋</div>
+      <h2>Willkommen beim Einmaleins!</h2>
+      <p>Wie heißt du? Dein Name erscheint in der weltweiten Bestenliste.</p>
+      <input
+        class="onboarding-input"
+        type="text"
+        v-model="onboardingName"
+        placeholder="Dein Name…"
+        maxlength="20"
+        @keydown.stop
+        @keyup.enter="finishOnboarding"
+        autofocus>
+      <button
+        class="onboarding-btn"
+        :disabled="!onboardingName.trim()"
+        @click="finishOnboarding">
+        Los geht's! 🚀
+      </button>
+    </div>
+  </div>
+
+  <div class="container">
+
+    <!-- ── Title ─────────────────────────────────────────────────── -->
+    <h1>
+      <template v-if="campaignActive">
+        🗺 Kampagne
+        <span class="h1-sub">{{ campaignLevels[campaignLevelIndex].label }} · Ebene {{ campaignLevelIndex + 1 }}/{{ campaignLevels.length }}</span>
+      </template>
+      <template v-else>
+        Einmaleins {{ settings.rowMin }}–{{ settings.rowMax }}
+      </template>
+    </h1>
+
+    <!-- ── Game HUD ────────────────────────────────────────────────── -->
+    <div v-if="gameMode" class="game-hud">
+      <div class="hud-lives">{{ livesDisplay }}</div>
+      <div class="hud-score">&#127941; {{ score }}</div>
+      <div v-if="combo >= 2" class="hud-combo">&#128293; x{{ combo }}</div>
+      <div class="hud-timer" :class="{ urgent: timer <= 5 }">{{ timer }}</div>
+      <button class="hud-exit" @click="onHudExit" title="Beenden">&#10005;</button>
+    </div>
+
+    <!-- ── Browse mode: action row ────────────────────────────────── -->
+    <div v-else class="action-row">
+      <button class="play-btn" @click="startFreeGame">&#9654; Spielen</button>
+      <button class="icon-btn" @click="openCampaignSelector" title="Kampagne">&#128506;&#65039;</button>
+      <button class="icon-btn" @click="openLeaderboard" title="Bestenliste">&#127942;</button>
+      <button class="icon-btn" @click="showSettings = true" title="Einstellungen">&#9881;&#65039;</button>
+    </div>
+
+    <!-- ── Question + answers ─────────────────────────────────────── -->
+    <div v-if="gameMode && currentQuestion.row" class="question-area">
+      <div class="question-label">
+        {{ currentQuestion.row }} &times; {{ currentQuestion.col }} = ?
+      </div>
+
+      <!-- Manual numpad mode -->
+      <div v-if="settings.manualInput" class="manual-input-area">
+        <div class="manual-display"
+             :class="{ 'display-correct': feedbackAnswer !== null && feedbackCorrect,
+                       'display-wrong':   feedbackAnswer !== null && !feedbackCorrect }">
+          <span v-if="feedbackAnswer !== null && !feedbackCorrect" class="display-wrong-val">{{ feedbackAnswer }} ✗</span>
+          <span v-else-if="feedbackAnswer !== null && feedbackCorrect" class="display-correct-val">{{ feedbackAnswer }} ✓</span>
+          <span v-else class="display-val">{{ manualInputValue || '…' }}</span>
+        </div>
+        <div class="numpad" @keydown.prevent>
+          <button class="np-btn" @click="numpadPress('7')" :disabled="selectionBlocked">7</button>
+          <button class="np-btn" @click="numpadPress('8')" :disabled="selectionBlocked">8</button>
+          <button class="np-btn" @click="numpadPress('9')" :disabled="selectionBlocked">9</button>
+          <button class="np-btn np-enter" @click="numpadSubmit" :disabled="selectionBlocked">&#9166;</button>
+          <button class="np-btn" @click="numpadPress('4')" :disabled="selectionBlocked">4</button>
+          <button class="np-btn" @click="numpadPress('5')" :disabled="selectionBlocked">5</button>
+          <button class="np-btn" @click="numpadPress('6')" :disabled="selectionBlocked">6</button>
+          <button class="np-btn" @click="numpadPress('1')" :disabled="selectionBlocked">1</button>
+          <button class="np-btn" @click="numpadPress('2')" :disabled="selectionBlocked">2</button>
+          <button class="np-btn" @click="numpadPress('3')" :disabled="selectionBlocked">3</button>
+          <button class="np-btn np-zero" @click="numpadPress('0')" :disabled="selectionBlocked">0</button>
+          <button class="np-btn np-del" @click="numpadDelete" :disabled="selectionBlocked">&#9003;</button>
+        </div>
+      </div>
+
+      <!-- Multiple choice mode -->
+      <div v-else-if="optionsVisible" class="answers">
+        <button
+          v-for="opt in options"
+          :key="opt"
+          class="answer-btn"
+          :class="{
+            'answer-correct': feedbackAnswer === opt && feedbackCorrect,
+            'answer-wrong':   feedbackAnswer === opt && !feedbackCorrect
+          }"
+          :disabled="selectionBlocked"
+          @click="selectAnswer(opt)">
+          {{ opt }}
+        </button>
+      </div>
+    </div>
+
+    <!-- ── Multiplication table ───────────────────────────────────── -->
+    <table v-if="!gameMode || !settings.manualInput">
+      <tr>
+        <td class="corner"></td>
+        <td v-for="col in colNums" :key="'top-'+col">
+          <button class="btn-header" :class="{active: isColActive(col)}" @click="toggleCol(col)">{{ col }}</button>
+        </td>
+        <td class="corner"></td>
+      </tr>
+      <tr v-for="row in rowNums" :key="'row-'+row">
+        <td>
+          <button class="btn-header" :class="{active: isRowActive(row)}" @click="toggleRow(row)">{{ row }}</button>
+        </td>
+        <td v-for="col in colNums" :key="'cell-'+row+'-'+col"
+            class="cell"
+            :class="cellClass(row, col)"
+            :style="{ background: cellBg(row, col) }">
+          <span class="cell-inner">{{ cellContent(row, col) }}</span>
+        </td>
+        <td>
+          <button class="btn-header" :class="{active: isRowActive(row)}" @click="toggleRow(row)">{{ row }}</button>
+        </td>
+      </tr>
+      <tr>
+        <td class="corner"></td>
+        <td v-for="col in colNums" :key="'bot-'+col">
+          <button class="btn-header" :class="{active: isColActive(col)}" @click="toggleCol(col)">{{ col }}</button>
+        </td>
+        <td class="corner"></td>
+      </tr>
+    </table>
+
+  </div><!-- /.container -->
+
+  <!-- ════════════════════════════════════════════════════════════ -->
+  <!-- OVERLAYS                                                     -->
+  <!-- ════════════════════════════════════════════════════════════ -->
+
+  <!-- ── Game Over ──────────────────────────────────────────────── -->
+  <div v-if="showGameOver" class="overlay">
+    <div class="overlay-box">
+      <h2>Nochmal versuchen &#128578;</h2>
+      <div class="final-score">&#127941; {{ score }}</div>
+      <div class="final-stats">
+        <div class="stat-row"><span>&#9989; Richtig</span><strong>{{ statsCorrect }} / {{ statsTotal }}</strong></div>
+        <div class="stat-row"><span>&#9201; Ø Zeit</span><strong>{{ avgTime }} s</strong></div>
+        <div class="stat-row" v-if="statsMaxCombo >= 2"><span>&#128293; Max. Kombo</span><strong>x{{ statsMaxCombo }}</strong></div>
+      </div>
+      <!-- Name prompt / saved badge -->
+      <template v-if="!campaignActive">
+        <div v-if="!scoreSaved" class="name-prompt">
+          <input class="name-input" type="text" v-model="pendingNameValue"
+                 :placeholder="playerName || 'Dein Name…'" maxlength="20"
+                 @keydown.stop @keyup.enter="saveScore">
+          <button class="name-save-btn" @click="saveScore" :disabled="!pendingNameValue.trim() && !playerName">
+            &#128190;
+          </button>
+        </div>
+        <div v-else class="score-saved-badge">&#10004; Gespeichert als <strong>{{ playerName }}</strong></div>
+      </template>
+      <!-- Buttons -->
+      <div class="btn-row">
+        <template v-if="campaignActive">
+          <button class="replay-btn" @click="retryCampaignLevel">Ebene wiederholen</button>
+          <button class="exit-btn" @click="exitCampaign">Kampagne beenden</button>
+        </template>
+        <template v-else>
+          <button class="replay-btn" @click="startFreeGame">Nochmal spielen</button>
+          <button class="exit-btn" @click="exitToTable">Zur Tabelle</button>
+        </template>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Win (free game) ────────────────────────────────────────── -->
+  <div v-if="showWin" class="overlay">
+    <div class="overlay-box">
+      <h2>Gut gemacht! &#127881;</h2>
+      <div style="font-size:36px;margin:6px 0">&#127881;</div>
+      <div style="margin-bottom:10px;color:#555;font-size:15px">Du hast die ganze Tabelle aufgedeckt!</div>
+      <div class="final-score">&#127941; {{ score }}</div>
+      <div class="final-stats">
+        <div class="stat-row"><span>&#9989; Richtig</span><strong>{{ statsCorrect }} / {{ statsTotal }}</strong></div>
+        <div class="stat-row"><span>&#9201; Ø Zeit</span><strong>{{ avgTime }} s</strong></div>
+        <div class="stat-row" v-if="statsMaxCombo >= 2"><span>&#128293; Max. Kombo</span><strong>x{{ statsMaxCombo }}</strong></div>
+      </div>
+      <div v-if="!scoreSaved" class="name-prompt">
+        <input class="name-input" type="text" v-model="pendingNameValue"
+               :placeholder="playerName || 'Dein Name…'" maxlength="20"
+               @keydown.stop @keyup.enter="saveScore">
+        <button class="name-save-btn" @click="saveScore" :disabled="!pendingNameValue.trim() && !playerName">
+          &#128190;
+        </button>
+      </div>
+      <div v-else class="score-saved-badge">&#10004; Gespeichert als <strong>{{ playerName }}</strong></div>
+      <div class="btn-row">
+        <button class="replay-btn" @click="startFreeGame">Nochmal spielen</button>
+        <button class="exit-btn" @click="exitToTable">Zur Tabelle</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Campaign: Level complete ───────────────────────────────── -->
+  <div v-if="showCampaignLevelComplete" class="overlay">
+    <div class="overlay-box">
+      <div style="font-size:11px;color:#4a6cf7;font-weight:bold;margin-bottom:4px">
+        KAMPAGNE · EBENE {{ campaignLevelIndex + 1 }}/{{ campaignLevels.length }}
+      </div>
+      <h2>{{ campaignLevels[campaignLevelIndex].emoji }} Geschafft!</h2>
+      <div class="final-score">&#127941; {{ score }}</div>
+      <div class="final-stats">
+        <div class="stat-row"><span>&#9989; Richtig</span><strong>{{ statsCorrect }} / {{ statsTotal }}</strong></div>
+        <div class="stat-row"><span>&#9201; Ø Zeit</span><strong>{{ avgTime }} s</strong></div>
+        <div class="stat-row" v-if="statsMaxCombo >= 2"><span>&#128293; Max. Kombo</span><strong>x{{ statsMaxCombo }}</strong></div>
+      </div>
+      <div class="btn-row">
+        <button class="replay-btn" @click="advanceCampaign">
+          {{ campaignLevelIndex + 1 < campaignLevels.length ? 'Weiter →' : '&#127942; Abschließen!' }}
+        </button>
+        <button class="exit-btn" @click="exitCampaign">Beenden</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Campaign: All complete ─────────────────────────────────── -->
+  <div v-if="showCampaignComplete" class="overlay">
+    <div class="overlay-box">
+      <h2>&#127942; Kampagne abgeschlossen!</h2>
+      <div style="font-size:40px;margin:8px 0">&#127881;</div>
+      <div class="final-score">Gesamt: {{ campaignTotalScore }}</div>
+      <div class="final-stats">
+        <div class="stat-row" v-for="(r, i) in campaignResults" :key="i">
+          <span>{{ campaignLevels[i] ? campaignLevels[i].emoji : '' }} {{ campaignLevels[i] ? campaignLevels[i].label : '' }}</span>
+          <strong>{{ r ? r.score : '—' }}</strong>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="replay-btn" @click="openCampaignSelector(); showCampaignComplete = false">Kampagne</button>
+        <button class="exit-btn" @click="showCampaignComplete = false; exitToTable()">Zur Tabelle</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Campaign Selector ──────────────────────────────────────── -->
+  <div v-if="showCampaignSelector" class="overlay">
+    <div class="overlay-box">
+      <h2>&#128506;&#65039; Kampagne</h2>
+      <p style="font-size:13px;color:#777;margin:4px 0 0">Lerne die Einmaleins-Reihen nacheinander!</p>
+      <div class="campaign-grid">
+        <button
+          v-for="(level, i) in campaignLevels"
+          :key="level.id"
+          class="campaign-level-btn"
+          :class="{
+            completed:   !!campaignProgress[level.id],
+            'final-level': i === campaignLevels.length - 1
+          }"
+          :disabled="!isCampaignLevelUnlocked(i)"
+          @click="openCampaignLevel(i)">
+          <span class="cl-emoji">{{ level.emoji }}</span>
+          <span class="cl-label">{{ level.label }}</span>
+          <span v-if="campaignProgress[level.id]" class="cl-score">
+            &#10003; {{ campaignProgress[level.id].score }}
+          </span>
+          <span v-else-if="!isCampaignLevelUnlocked(i)" class="cl-lock">&#128274;</span>
+        </button>
+      </div>
+      <div class="btn-row">
+        <button class="replay-btn" @click="startCampaignFromBeginning">&#9654; Von Anfang</button>
+        <button class="exit-btn" @click="showCampaignSelector = false">Schließen</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Leaderboard ────────────────────────────────────────────── -->
+  <div v-if="showLeaderboard" class="overlay">
+    <div class="overlay-box">
+      <h2>&#127942; Bestenliste</h2>
+      <div class="lb-tabs">
+        <button class="lb-tab" :class="{active: lbTab === 'local'}" @click="lbTab = 'local'">
+          &#128187; Lokal
+        </button>
+        <button class="lb-tab" :class="{active: lbTab === 'remote'}" @click="switchToRemoteTab">
+          &#127760; Weltweit
+        </button>
+      </div>
+
+      <!-- Local leaderboard -->
+      <table v-if="lbTab === 'local'" class="leaderboard-table">
+        <thead>
+          <tr><th class="lb-rank">#</th><th>Name</th><th>Pkt</th><th>Richtig</th></tr>
+        </thead>
+        <tbody>
+          <tr v-for="(e, i) in localLeaderboardData" :key="i">
+            <td class="lb-rank">{{ lbMedal(i) }}</td>
+            <td class="lb-name">{{ e.playerName }}</td>
+            <td class="lb-score">{{ e.score }}</td>
+            <td>{{ e.correct }}/{{ e.total }}</td>
+          </tr>
+          <tr v-if="localLeaderboardData.length === 0">
+            <td colspan="4" class="lb-empty">Noch keine Einträge. Spiel und werde der Erste!</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- Remote leaderboard -->
+      <div v-if="lbTab === 'remote'">
+        <div v-if="remoteLoading" style="text-align:center;padding:20px;color:#aaa">
+          Lade…
+        </div>
+        <table v-else class="leaderboard-table">
+          <thead>
+            <tr><th class="lb-rank">#</th><th>Name</th><th>Pkt</th></tr>
+          </thead>
+          <tbody>
+            <tr v-for="(e, i) in remoteLeaderboardData" :key="i">
+              <td class="lb-rank">{{ lbMedal(i) }}</td>
+              <td class="lb-name">{{ e.name }}</td>
+              <td class="lb-score">{{ e.score }}</td>
+            </tr>
+            <tr v-if="remoteLeaderboardData.length === 0">
+              <td colspan="3" class="lb-empty">Noch keine weltweiten Einträge.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <button class="exit-btn" style="width:100%;margin-top:4px" @click="showLeaderboard = false">
+        Schließen
+      </button>
+    </div>
+  </div>
+
+  <!-- ── Settings ───────────────────────────────────────────────── -->
+  <div v-if="showSettings" class="overlay">
+    <div class="overlay-box settings-box">
+      <h2>&#9881;&#65039; Einstellungen</h2>
+
+      <div class="setting-row" style="margin-top:20px">
+        <span class="setting-label">Reihen (von – bis)</span>
+        <div class="setting-control">
+          <select v-model.number="settings.rowMin" class="range-select">
+            <option v-for="n in rangeNums" :key="'min-'+n" :value="n" :disabled="n > settings.rowMax">{{ n }}</option>
+          </select>
+          <span class="range-sep">–</span>
+          <select v-model.number="settings.rowMax" class="range-select">
+            <option v-for="n in rangeNums" :key="'max-'+n" :value="n" :disabled="n < settings.rowMin">{{ n }}</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="setting-row">
+        <span class="setting-label">Zeit pro Antwort</span>
+        <div class="setting-control">
+          <input type="range" min="5" max="30" step="1" v-model.number="settings.timePerAnswer" class="slider">
+          <span class="setting-value">{{ settings.timePerAnswer }}&nbsp;s</span>
+        </div>
+      </div>
+
+      <div class="setting-row">
+        <span class="setting-label">Leben</span>
+        <div class="setting-control">
+          <input type="range" min="1" max="9" step="1" v-model.number="settings.livesCount" class="slider">
+          <span class="setting-value">{{ settings.livesCount }}</span>
+        </div>
+      </div>
+
+      <div class="setting-row" v-if="!settings.manualInput">
+        <span class="setting-label">Antwortm&#246;glichkeiten</span>
+        <div class="setting-control">
+          <input type="range" min="3" max="6" step="1" v-model.number="settings.optionsCount" class="slider">
+          <span class="setting-value">{{ settings.optionsCount }}</span>
+        </div>
+      </div>
+
+      <div class="setting-row">
+        <span class="setting-label">&#9999;&#65039; Manuelle Eingabe</span>
+        <div class="setting-control">
+          <label class="toggle-switch">
+            <input type="checkbox" v-model="settings.manualInput">
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="setting-row" v-if="playerName">
+        <span class="setting-label">&#128100; Spielername</span>
+        <div class="setting-control">
+          <input class="name-input" type="text" v-model="playerName"
+                 maxlength="20" style="width:130px;font-size:13px;padding:6px 10px"
+                 @keydown.stop>
+        </div>
+      </div>
+
+      <button class="replay-btn settings-done" @click="closeSettings">Fertig</button>
+    </div>
+  </div>
+
+</div><!-- /#app -->
+
+<!-- ── PWA Install Banner ─────────────────────────────────────────── -->
+<div id="install-banner" style="display:none">
+  <span>&#128242; App auf dem Desktop installieren</span>
+  <div>
+    <button id="install-btn">Installieren</button>
+    <button class="dismiss" id="dismiss-btn">&#10005;</button>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════════════
+// CONSTANTS
+// ════════════════════════════════════════════════════════════════════
+
+const APP_VERSION = '2.1.0';
+
+/** Campaign level definitions. Each single level covers one multiplier row;
+ *  the final 'full' level covers the entire 2–9 table. */
+const CAMPAIGN_LEVELS = [
+  { id: 'l2',   label: '×2',   emoji: '2️⃣',  rowMin: 2, rowMax: 2 },
+  { id: 'l3',   label: '×3',   emoji: '3️⃣',  rowMin: 3, rowMax: 3 },
+  { id: 'l4',   label: '×4',   emoji: '4️⃣',  rowMin: 4, rowMax: 4 },
+  { id: 'l5',   label: '×5',   emoji: '5️⃣',  rowMin: 5, rowMax: 5 },
+  { id: 'l6',   label: '×6',   emoji: '6️⃣',  rowMin: 6, rowMax: 6 },
+  { id: 'l7',   label: '×7',   emoji: '7️⃣',  rowMin: 7, rowMax: 7 },
+  { id: 'l8',   label: '×8',   emoji: '8️⃣',  rowMin: 8, rowMax: 8 },
+  { id: 'l9',   label: '×9',   emoji: '9️⃣',  rowMin: 9, rowMax: 9 },
+  { id: 'full', label: '×2–9', emoji: '🌟',  rowMin: 2, rowMax: 9 },
+];
+
+/** Always 2–9 (the column dimension of the table). */
+const COL_NUMS = [2, 3, 4, 5, 6, 7, 8, 9];
+
+const COLOR_PALETTE = [
+  '#ffd6d6','#ffe8cc','#fff5ba','#e3ffd6',
+  '#d6fff3','#d6e7ff','#e4d6ff','#ffd6f1',
+  '#f0f0f0','#c8f7ff','#e8ffc8','#ffc8e8',
+];
+
+const DEFAULT_SETTINGS = {
+  rowMin: 2, rowMax: 9, timePerAnswer: 20,
+  livesCount: 5, optionsCount: 4, manualInput: false,
+};
+
+/** localStorage key namespace. */
+const STORAGE_KEYS = {
+  settings:         'einmaleins:settings',
+  playerName:       'einmaleins:playerName',
+  playerGuid:       'einmaleins:playerGuid',
+  localLeaderboard: 'einmaleins:localLeaderboard',
+  history:          'einmaleins:history',
+  campaignProgress: 'einmaleins:campaignProgress',
+};
+
+/** Generate or retrieve a persistent local GUID for this installation. */
+function getOrCreateGuid() {
+  let id = localStorage.getItem(STORAGE_KEYS.playerGuid);
+  if (!id) {
+    id = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+      const r = Math.random() * 16 | 0;
+      return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+    });
+    localStorage.setItem(STORAGE_KEYS.playerGuid, id);
+  }
+  return id;
+}
+
+const LOCAL_GUID = getOrCreateGuid();
+
+// ════════════════════════════════════════════════════════════════════
+// STORAGE API
+// ════════════════════════════════════════════════════════════════════
+
+const Storage = {
+  get(key, fallback = null) {
+    try {
+      const v = localStorage.getItem(key);
+      return v !== null ? JSON.parse(v) : fallback;
+    } catch { return fallback; }
+  },
+  set(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
+  },
+  remove(key) {
+    try { localStorage.removeItem(key); } catch {}
+  },
+};
+
+// ════════════════════════════════════════════════════════════════════
+// CAMPAIGN STORE
+// ════════════════════════════════════════════════════════════════════
+
+const CampaignStore = {
+  getProgress() {
+    return Storage.get(STORAGE_KEYS.campaignProgress, {});
+  },
+  /** Save a level result; keeps the best score per level. */
+  setLevelComplete(levelId, entry) {
+    const p = this.getProgress();
+    if (!p[levelId] || entry.score > (p[levelId].score || 0)) {
+      p[levelId] = { ...entry, completedAt: new Date().toISOString() };
+    }
+    Storage.set(STORAGE_KEYS.campaignProgress, p);
+  },
+  /** Level 0 is always unlocked; subsequent levels require the previous to be completed. */
+  isUnlocked(levelIndex) {
+    if (levelIndex === 0) return true;
+    const prevId = CAMPAIGN_LEVELS[levelIndex - 1].id;
+    return !!this.getProgress()[prevId];
+  },
+  reset() { Storage.remove(STORAGE_KEYS.campaignProgress); },
+};
+
+// ════════════════════════════════════════════════════════════════════
+// LOCAL LEADERBOARD
+// ════════════════════════════════════════════════════════════════════
+
+const LocalLeaderboard = {
+  MAX_ENTRIES: 10,
+  getAll() { return Storage.get(STORAGE_KEYS.localLeaderboard, []); },
+  addEntry(entry) {
+    const all = this.getAll();
+    all.push({ ...entry, timestamp: new Date().toISOString() });
+    all.sort((a, b) => b.score - a.score);
+    const trimmed = all.slice(0, this.MAX_ENTRIES);
+    Storage.set(STORAGE_KEYS.localLeaderboard, trimmed);
+    return trimmed;
+  },
+};
+
+// ════════════════════════════════════════════════════════════════════
+// REMOTE LEADERBOARD  –  JSONBin.io adapter
+// ════════════════════════════════════════════════════════════════════
+/**
+ * Bin structure stored in JSONBin:
+ * {
+ *   users:   [ { guid, name } ],
+ *   scores:  [ { userId, bestScore, updatedAt } ],   // one entry per user, unsorted
+ *   lockedBy: null | { userId, lockedAt }             // optimistic lock
+ * }
+ *
+ * Concurrency strategy (optimistic lock):
+ *   1. READ  bin  → check lockedBy
+ *   2. If locked and lock is < 5 s old → wait 600 ms and retry (max 5 retries)
+ *   3. WRITE lock  (lockedBy = { userId, lockedAt })
+ *   4. Apply changes
+ *   5. WRITE updated bin with lockedBy = null
+ *
+ * Only the user's own score record is ever changed. Other users' records
+ * are left untouched.  The display layer sorts + limits to top 20.
+ */
+const RemoteLeaderboard = (() => {
+  const BIN_ID  = '69ad95cfae596e708f6d22d8';
+  const API_KEY = '$2a$10$NPCaffxcpTEMpt/8W.8p2OhIJQV76Rop9qqqZB.dGPjdtVNAkEOsS';
+  const BASE    = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
+  const LOCK_TTL_MS = 5000;   // stale lock age
+  const MAX_DISPLAY = 20;
+
+  const headers = () => ({
+    'Content-Type': 'application/json',
+    'X-Access-Key': API_KEY,
+  });
+
+  // ── raw read/write ───────────────────────────────────────────────
+  async function _read() {
+    const r = await fetch(`${BASE}/latest`, { headers: headers() });
+    if (!r.ok) throw new Error(`read failed: ${r.status}`);
+    const d = await r.json();
+    const rec = d?.record ?? {};
+    // Normalise: support old bin format (locked_by/locked_at) and new (lockedBy)
+    let lockedBy = null;
+    if (rec.lockedBy) {
+      lockedBy = rec.lockedBy;
+    } else if (rec.locked_by) {
+      lockedBy = { userId: rec.locked_by, lockedAt: rec.locked_at || 0 };
+    }
+    return {
+      users:    Array.isArray(rec.users)  ? rec.users  : [],
+      scores:   Array.isArray(rec.scores) ? rec.scores : [],
+      lockedBy,
+    };
+  }
+
+  async function _write(data) {
+    const r = await fetch(BASE, {
+      method: 'PUT',
+      headers: headers(),
+      body: JSON.stringify(data),
+    });
+    if (!r.ok) throw new Error(`write failed: ${r.status}`);
+  }
+
+  // ── lock helpers ─────────────────────────────────────────────────
+  function _isLocked(data) {
+    if (!data.lockedBy) return false;
+    const age = Date.now() - (data.lockedBy.lockedAt || 0);
+    return age < LOCK_TTL_MS;
+  }
+
+  function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+  // ── public API ───────────────────────────────────────────────────
+  const self = {
+    get isConfigured() { return true; },
+
+    /**
+     * Register / update user name.  userId = local GUID.
+     * Called once on first launch and whenever name changes.
+     */
+    async syncUser(userId, name) {
+      try {
+        for (let attempt = 0; attempt < 6; attempt++) {
+          let data = await _read();
+          if (_isLocked(data)) { await delay(700); continue; }
+
+          // Acquire lock
+          data.lockedBy = { userId, lockedAt: Date.now() };
+          await _write(data);
+
+          // Re-read after lock acquired (verify we own the lock)
+          data = await _read();
+          if (data.lockedBy?.userId !== userId) { await delay(700); continue; }
+
+          // Upsert user
+          const idx = data.users.findIndex(u => u.guid === userId);
+          if (idx >= 0) {
+            data.users[idx].name = name;
+          } else {
+            data.users.push({ guid: userId, name });
+          }
+          data.lockedBy = null;
+          await _write(data);
+          return { ok: true };
+        }
+        return { ok: false, reason: 'lock timeout' };
+      } catch (e) { return { ok: false, reason: e.message }; }
+    },
+
+    /**
+     * Submit best score.  Overwrites only this user's record.
+     * New record is set only if score > previous best.
+     */
+    async submit(userId, score) {
+      try {
+        for (let attempt = 0; attempt < 6; attempt++) {
+          let data = await _read();
+          if (_isLocked(data)) { await delay(700); continue; }
+
+          // Acquire lock
+          data.lockedBy = { userId, lockedAt: Date.now() };
+          await _write(data);
+
+          data = await _read();
+          if (data.lockedBy?.userId !== userId) { await delay(700); continue; }
+
+          // Upsert score (keep best)
+          const idx = data.scores.findIndex(s => s.userId === userId);
+          if (idx >= 0) {
+            if (score > data.scores[idx].bestScore) {
+              data.scores[idx].bestScore = score;
+              data.scores[idx].updatedAt = Date.now();
+            }
+          } else {
+            data.scores.push({ userId, bestScore: score, updatedAt: Date.now() });
+          }
+          data.lockedBy = null;
+          await _write(data);
+          return { ok: true };
+        }
+        return { ok: false, reason: 'lock timeout' };
+      } catch (e) { return { ok: false, reason: e.message }; }
+    },
+
+    /**
+     * Fetch and return top-20 entries for display.
+     * Joins users + scores, sorts descending by bestScore, trims to MAX_DISPLAY.
+     */
+    async fetchTop() {
+      try {
+        const data = await _read();
+        const userMap = {};
+        for (const u of data.users) userMap[u.guid] = u.name;
+
+        const merged = data.scores
+          .map(s => ({ name: userMap[s.userId] || 'Anonym', score: s.bestScore }))
+          .sort((a, b) => b.score - a.score)
+          .slice(0, MAX_DISPLAY);
+
+        return merged;
+      } catch { return []; }
+    },
+  };
+
+  return self;
+})();
+
+// ════════════════════════════════════════════════════════════════════
+// AUDIO ENGINE
+// ════════════════════════════════════════════════════════════════════
+
+const AudioEngine = (() => {
+  let ctx = null;
+  const getCtx = () => {
+    if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+    return ctx;
+  };
+  const tone = (freq, type, t, dur) => {
+    const c = getCtx();
+    const osc = c.createOscillator();
+    const gain = c.createGain();
+    osc.connect(gain); gain.connect(c.destination);
+    osc.type = type; osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.22, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    osc.start(t); osc.stop(t + dur);
+  };
+  const safe = fn => { try { fn(); } catch {} };
+  return {
+    correct() { safe(() => { const c=getCtx(),t=c.currentTime; [523,659,784].forEach((f,i)=>tone(f,'sine',t+i*.1,.15)); }); },
+    wrong()   { safe(() => { const c=getCtx(),t=c.currentTime; tone(280,'sawtooth',t,.12); tone(210,'sawtooth',t+.1,.18); }); },
+    win()     { safe(() => { const c=getCtx(),t=c.currentTime; [523,659,784,1047,1047].forEach((f,i)=>tone(f,'sine',t+i*.13,.28)); }); },
+    levelUp() { safe(() => { const c=getCtx(),t=c.currentTime; [784,880,1047].forEach((f,i)=>tone(f,'sine',t+i*.12,.2)); }); },
+  };
+})();
+
+// ════════════════════════════════════════════════════════════════════
+// PURE UTILITIES
+// ════════════════════════════════════════════════════════════════════
+
+/**
+ * Calculate score for a correct answer.
+ *
+ * FIX (v2): In manual-input mode V was 0 (log(1)/log(6)) → Score was always 0.
+ *           Manual input is harder than any multiple-choice → V = 1.0.
+ *
+ * @param {object} p
+ * @param {number} p.a            Multiplier A (row)
+ * @param {number} p.b            Multiplier B (col)
+ * @param {number} p.timerAtAnswer Timer value remaining when answered
+ * @param {number} p.Tmax         Time allowed per answer
+ * @param {number} p.optionsCount Number of MC options (ignored in manual mode)
+ * @param {boolean} p.manualInput Whether manual-input mode is active
+ * @param {number} p.combo        Current combo streak
+ * @returns {number}
+ */
+function calcScore({ a, b, timerAtAnswer, Tmax, optionsCount, manualInput, combo }) {
+  const t_i = Math.max(1, Tmax - timerAtAnswer);
+  const D_i = Math.log(a * b + 1) / Math.log(82);
+  const S_i = Math.max(0, Math.min(1, Math.log(Tmax / t_i) / Math.log(Tmax)));
+  const V   = manualInput ? 1.0 : Math.log(Math.max(2, optionsCount)) / Math.log(6);
+  const K_i = 1 + Math.min(combo, 10) * 0.05;
+  return Math.round(100 * S_i * (0.6 + 0.4 * D_i) * V * K_i);
+}
+
+/** Fisher-Yates shuffle. Returns a new array. */
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+/**
+ * Build answer options for a multiplication question.
+ * Generates plausible distractors from nearby products in the same table.
+ */
+function buildOptions({ row, col, answer, rowMin, rowMax, optionsCount }) {
+  const cands = new Set([answer]);
+  // Neighbours along the row axis
+  for (const dr of [-2, -1, 1, 2]) {
+    const r = row + dr;
+    if (r >= rowMin && r <= rowMax) cands.add(r * col);
+  }
+  // Neighbours along the column axis
+  for (const dc of [-2, -1, 1, 2]) {
+    const c = col + dc;
+    if (c >= 2 && c <= 9) cands.add(row * c);
+  }
+  // Pad with ±delta values if still not enough candidates
+  let delta = 1;
+  while (cands.size < optionsCount + 2 && delta < 40) {
+    const v1 = answer + delta, v2 = answer - delta;
+    if (v1 > 0) cands.add(v1);
+    if (v2 > 0) cands.add(v2);
+    delta++;
+  }
+  const wrong = shuffle([...cands].filter(v => v !== answer));
+  return shuffle([answer, ...wrong.slice(0, optionsCount - 1)]);
+}
+
+function delay(ms) { return new Promise(res => setTimeout(res, ms)); }
+
+// ════════════════════════════════════════════════════════════════════
+// VUE APPLICATION
+// ════════════════════════════════════════════════════════════════════
+
+const { createApp, ref, computed, reactive, watch, onMounted, onUnmounted } = Vue;
+
+createApp({
+  setup() {
+    // ── Settings ─────────────────────────────────────────────────
+    // Loaded from localStorage on init; saved explicitly when the user
+    // closes the settings panel (avoids persisting campaign overrides).
+    const settings = reactive({
+      ...DEFAULT_SETTINGS,
+      ...Storage.get(STORAGE_KEYS.settings, {}),
+    });
+
+    function closeSettings() {
+      Storage.set(STORAGE_KEYS.settings, { ...settings });
+      showSettings.value = false;
+    }
+
+    const showSettings = ref(false);
+
+    // ── Player name ───────────────────────────────────────────────
+    const playerName = ref(Storage.get(STORAGE_KEYS.playerName, ''));
+    const showOnboarding = ref(!playerName.value);
+    const onboardingName = ref('');
+
+    watch(playerName, v => {
+      if (typeof v === 'string') {
+        Storage.set(STORAGE_KEYS.playerName, v);
+        if (v) RemoteLeaderboard.syncUser(LOCAL_GUID, v);
+      }
+    });
+
+    function finishOnboarding() {
+      const name = onboardingName.value.trim();
+      if (!name) return;
+      playerName.value = name;
+      showOnboarding.value = false;
+      // Register user on remote leaderboard (fire-and-forget)
+      RemoteLeaderboard.syncUser(LOCAL_GUID, name);
+    }
+
+    // ── Table layout ──────────────────────────────────────────────
+    const rangeNums = Array.from({ length: 8 }, (_, i) => i + 2); // [2..9]
+    const colNums   = COL_NUMS;
+    const rowNums   = computed(() => {
+      const arr = [];
+      for (let i = settings.rowMin; i <= settings.rowMax; i++) arr.push(i);
+      return arr;
+    });
+
+    // ── Browse state ──────────────────────────────────────────────
+    const activeRow    = ref(null);
+    const activeCol    = ref(null);
+    const showHighlight = ref(false);
+
+    // ── Core game state ───────────────────────────────────────────
+    const gameMode         = ref(false);
+    const currentQuestion  = ref({ row: null, col: null, answer: null });
+    const options          = ref([]);
+    const timer            = ref(settings.timePerAnswer);
+    const lives            = ref(settings.livesCount);
+    const score            = ref(0);
+    const combo            = ref(0);
+    const openedCells      = ref({});
+    const showGameOver     = ref(false);
+    const showWin          = ref(false);
+    const feedbackAnswer   = ref(null);
+    const feedbackCorrect  = ref(false);
+    const selectionBlocked = ref(false);
+    const optionsVisible   = ref(false);
+    const manualInputValue = ref('');
+    const manualInputShake = ref(false);
+
+    // ── Stats ─────────────────────────────────────────────────────
+    const statsCorrect  = ref(0);
+    const statsTotal    = ref(0);
+    const statsSumTime  = ref(0);
+    const statsMaxCombo = ref(0);
+
+    // ── Campaign state ────────────────────────────────────────────
+    const campaignActive            = ref(false);
+    const campaignLevelIndex        = ref(0);
+    const campaignResults           = ref([]);  // [{score, correct, total, levelId}, …]
+    const showCampaignSelector      = ref(false);
+    const showCampaignLevelComplete = ref(false);
+    const showCampaignComplete      = ref(false);
+    const campaignProgress          = ref(CampaignStore.getProgress());
+    // Saved before campaign overrides settings.rowMin/rowMax
+    let _savedFreeSettings = null;
+
+    // ── Score saving state ────────────────────────────────────────
+    const scoreSaved      = ref(false);
+    const pendingNameValue = ref('');
+    let   _pendingEntry   = null;
+
+    // ── Leaderboard state ─────────────────────────────────────────
+    const showLeaderboard       = ref(false);
+    const lbTab                 = ref('local');
+    const localLeaderboardData  = ref(LocalLeaderboard.getAll());
+    const remoteLeaderboardData = ref([]);
+    const remoteLoading         = ref(false);
+
+    // ── Timers ────────────────────────────────────────────────────
+    let timerInterval  = null;
+    let highlightTimer = null;
+    let idleTimer      = null;
+
+    // ════════════════════════════════════════════════════════════
+    // COMPUTED
+    // ════════════════════════════════════════════════════════════
+
+    const livesDisplay = computed(() => '❤️'.repeat(Math.max(0, lives.value)));
+
+    /** Maps each unique product to a pastel colour. Cells sharing a value share a colour. */
+    const colorMap = computed(() => {
+      const map = {};
+      let idx = 0;
+      for (const r of rowNums.value)
+        for (const c of COL_NUMS) {
+          const v = r * c;
+          if (!(v in map)) map[v] = COLOR_PALETTE[idx++ % COLOR_PALETTE.length];
+        }
+      return map;
+    });
+
+    const avgTime = computed(() => {
+      if (statsCorrect.value === 0) return '—';
+      return (statsSumTime.value / statsCorrect.value).toFixed(1);
+    });
+
+    const campaignTotalScore = computed(() =>
+      campaignResults.value.reduce((s, r) => s + (r ? r.score : 0), 0)
+    );
+
+    // ════════════════════════════════════════════════════════════
+    // CELL HELPERS
+    // ════════════════════════════════════════════════════════════
+
+    function cellBg(row, col) {
+      if (gameMode.value) {
+        return openedCells.value[`${row}-${col}`]
+          ? (colorMap.value[row * col] || '#fff')
+          : '#f0f0f0';
+      }
+      return colorMap.value[row * col] || '#fff';
+    }
+
+    function cellContent(row, col) {
+      if (!gameMode.value) return row * col;
+      if (openedCells.value[`${row}-${col}`]) return row * col;
+      const q = currentQuestion.value;
+      if (q.row === row && q.col === col) return '?';
+      return '';
+    }
+
+    function cellClass(row, col) {
+      if (gameMode.value) {
+        const q = currentQuestion.value;
+        if (openedCells.value[`${row}-${col}`]) return {};
+        if (q.row === null) return { dimmed: true };
+        if (row === q.row && col === q.col) return { highlighted: true };
+        if (row === q.row || col === q.col) return { 'row-active': true };
+        return { dimmed: true };
+      }
+      const anyActive = activeRow.value !== null || activeCol.value !== null;
+      if (!anyActive) return {};
+      const isIntersection = row === activeRow.value && col === activeCol.value;
+      if (activeRow.value !== null && activeCol.value !== null && isIntersection && showHighlight.value)
+        return { highlighted: true };
+      if (row === activeRow.value) return { 'row-active': true };  // FIX: row uses row-active
+      if (col === activeCol.value) return { 'col-active': true };  // FIX: col uses col-active
+      return { dimmed: true };
+    }
+
+    function isRowActive(row) {
+      return gameMode.value ? currentQuestion.value.row === row : activeRow.value === row;
+    }
+    function isColActive(col) {
+      return gameMode.value ? currentQuestion.value.col === col : activeCol.value === col;
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // BROWSE MODE
+    // ════════════════════════════════════════════════════════════
+
+    function resetIdleTimer() {
+      if (idleTimer) clearTimeout(idleTimer);
+      idleTimer = setTimeout(() => {
+        activeRow.value = null; activeCol.value = null; showHighlight.value = false;
+      }, 6000);
+    }
+
+    function tryHighlight() {
+      if (activeRow.value !== null && activeCol.value !== null) {
+        showHighlight.value = true;
+        if (highlightTimer) clearTimeout(highlightTimer);
+        highlightTimer = setTimeout(() => { showHighlight.value = false; }, 2000);
+      }
+    }
+
+    function toggleRow(row) {
+      if (gameMode.value) return;
+      activeRow.value = activeRow.value === row ? null : row;
+      resetIdleTimer(); tryHighlight();
+    }
+
+    function toggleCol(col) {
+      if (gameMode.value) return;
+      activeCol.value = activeCol.value === col ? null : col;
+      resetIdleTimer(); tryHighlight();
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // TIMER
+    // ════════════════════════════════════════════════════════════
+
+    function stopTimer() {
+      if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+    }
+
+    function startTimer() {
+      stopTimer();
+      timer.value = settings.timePerAnswer;
+      timerInterval = setInterval(() => {
+        timer.value--;
+        if (timer.value <= 0) { stopTimer(); handleTimeout(); }
+      }, 1000);
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // GAME LOGIC
+    // ════════════════════════════════════════════════════════════
+
+    function getUnopenedCells() {
+      const cells = [];
+      for (const r of rowNums.value)
+        for (const c of COL_NUMS)
+          if (!openedCells.value[`${r}-${c}`]) cells.push({ r, c });
+      return cells;
+    }
+
+    function generateOptionsForQuestion() {
+      const { row, col, answer } = currentQuestion.value;
+      options.value = buildOptions({
+        row, col, answer,
+        rowMin: settings.rowMin,
+        rowMax: settings.rowMax,
+        optionsCount: settings.optionsCount,
+      });
+    }
+
+    /** Handle timer expiry: show correct answer briefly, deduct life, continue. */
+    async function handleTimeout() {
+      optionsVisible.value = true;
+      selectionBlocked.value = true;
+      // Display the correct answer highlighted (pedagogical: helps player learn it)
+      feedbackAnswer.value = currentQuestion.value.answer;
+      feedbackCorrect.value = true;
+      AudioEngine.wrong();
+      statsTotal.value++;
+      manualInputValue.value = '';
+      await delay(1400);
+      combo.value = 0;
+      lives.value--;
+      if (lives.value <= 0) { endGame(); } else { nextQuestion(); }
+    }
+
+    function nextQuestion() {
+      feedbackAnswer.value = null;
+      selectionBlocked.value = false;
+      const unopened = getUnopenedCells();
+
+      if (unopened.length === 0) {
+        stopTimer();
+        if (campaignActive.value) {
+          onCampaignLevelWin();
+        } else {
+          showWin.value = true;
+          AudioEngine.win();
+          onGameEnd();
+        }
+        return;
+      }
+
+      const { r, c } = unopened[Math.floor(Math.random() * unopened.length)];
+      currentQuestion.value = { row: r, col: c, answer: r * c };
+      generateOptionsForQuestion();
+      optionsVisible.value = true;
+      startTimer();
+    }
+
+    async function selectAnswer(value) {
+      if (selectionBlocked.value) return;
+      selectionBlocked.value = true;
+      const timerAtAnswer = timer.value;
+      stopTimer();
+      feedbackAnswer.value = value;
+      statsTotal.value++;
+
+      if (value === currentQuestion.value.answer) {
+        feedbackCorrect.value = true;
+        AudioEngine.correct();
+        combo.value++;
+        if (combo.value > statsMaxCombo.value) statsMaxCombo.value = combo.value;
+        const pts = calcScore({
+          a: currentQuestion.value.row,
+          b: currentQuestion.value.col,
+          timerAtAnswer,
+          Tmax: settings.timePerAnswer,
+          optionsCount: settings.optionsCount,
+          manualInput: settings.manualInput,
+          combo: combo.value,
+        });
+        score.value += pts;
+        statsCorrect.value++;
+        statsSumTime.value += Math.max(1, settings.timePerAnswer - timerAtAnswer);
+        const { row, col } = currentQuestion.value;
+        // Open this cell AND its symmetric counterpart (row↔col) simultaneously
+        const newOpened = { ...openedCells.value, [`${row}-${col}`]: true };
+        if (row !== col) {
+          // The symmetric cell exists only if both row and col are within the table range
+          const symRowInRange = col >= settings.rowMin && col <= settings.rowMax;
+          const symColInRange = row >= 2 && row <= 9;
+          if (symRowInRange && symColInRange) {
+            newOpened[`${col}-${row}`] = true;
+          }
+        }
+        openedCells.value = newOpened;
+        await delay(450);
+        nextQuestion();
+      } else {
+        feedbackCorrect.value = false;
+        AudioEngine.wrong();
+        combo.value = 0;
+        lives.value--;
+        manualInputValue.value = '';
+        await delay(settings.manualInput ? 800 : 450);
+        if (lives.value <= 0) {
+          endGame();
+        } else {
+          feedbackAnswer.value = null;
+          selectionBlocked.value = false;
+          startTimer();
+        }
+      }
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // GAME LIFECYCLE
+    // ════════════════════════════════════════════════════════════
+
+    function resetGameState() {
+      showGameOver.value = false;
+      showWin.value = false;
+      showCampaignLevelComplete.value = false;
+      lives.value = settings.livesCount;
+      score.value = 0;
+      combo.value = 0;
+      openedCells.value = {};
+      feedbackAnswer.value = null;
+      selectionBlocked.value = false;
+      activeRow.value = null;
+      activeCol.value = null;
+      showHighlight.value = false;
+      manualInputValue.value = '';
+      statsCorrect.value = 0;
+      statsTotal.value = 0;
+      statsSumTime.value = 0;
+      statsMaxCombo.value = 0;
+      scoreSaved.value = false;
+      pendingNameValue.value = '';
+      _pendingEntry = null;
+      if (idleTimer) clearTimeout(idleTimer);
+    }
+
+    function startGame() {
+      resetGameState();
+      gameMode.value = true;
+      nextQuestion();
+    }
+
+    /** Start a free (non-campaign) game using current settings. */
+    function startFreeGame() {
+      campaignActive.value = false;
+      startGame();
+    }
+
+    function endGame() {
+      stopTimer();
+      gameMode.value = false;
+      showGameOver.value = true;
+      if (!campaignActive.value) {
+        onGameEnd();
+      }
+    }
+
+    /** Return to browse mode without saving or recording anything. */
+    function exitToTable() {
+      stopTimer();
+      optionsVisible.value = false;
+      gameMode.value = false;
+      showGameOver.value = false;
+      showWin.value = false;
+      currentQuestion.value = { row: null, col: null, answer: null };
+      options.value = [];
+    }
+
+    /** HUD exit button: respects campaign context. */
+    function onHudExit() {
+      if (campaignActive.value) {
+        exitCampaign();
+      } else {
+        exitToTable();
+      }
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // SCORE SAVING & LEADERBOARD
+    // ════════════════════════════════════════════════════════════
+
+    function buildGameEntry() {
+      return {
+        playerName: playerName.value || 'Anonym',
+        score: score.value,
+        correct: statsCorrect.value,
+        total: statsTotal.value,
+        maxCombo: statsMaxCombo.value,
+        avgTime: statsCorrect.value > 0 ? parseFloat(avgTime.value) : 0,
+        settings: {
+          rowMin: settings.rowMin,
+          rowMax: settings.rowMax,
+          timePerAnswer: settings.timePerAnswer,
+          optionsCount: settings.optionsCount,
+          manualInput: settings.manualInput,
+        },
+      };
+    }
+
+    /** Called after a free game ends (not campaign). Triggers score save flow. */
+    function onGameEnd() {
+      _pendingEntry = buildGameEntry();
+      if (playerName.value) {
+        // Name known: save immediately and show badge
+        _pendingEntry.playerName = playerName.value;
+        persistGameEntry(_pendingEntry);
+        scoreSaved.value = true;
+        _pendingEntry = null;
+      }
+      // Otherwise the name-prompt in the overlay collects the name first
+    }
+
+    /** Save entry to local leaderboard, history, and optionally remote. */
+    function persistGameEntry(entry) {
+      const updated = LocalLeaderboard.addEntry(entry);
+      localLeaderboardData.value = updated;
+      // Append to history (keep last 50)
+      const history = Storage.get(STORAGE_KEYS.history, []);
+      history.unshift(entry);
+      Storage.set(STORAGE_KEYS.history, history.slice(0, 50));
+      // Fire-and-forget remote submission (best score per user)
+      RemoteLeaderboard.submit(LOCAL_GUID, entry.score);
+    }
+
+    /** Called when user clicks the 💾 button in the result overlay. */
+    function saveScore() {
+      const name = pendingNameValue.value.trim() || playerName.value;
+      if (!name) return;
+      if (pendingNameValue.value.trim()) {
+        playerName.value = pendingNameValue.value.trim();
+      }
+      if (_pendingEntry) {
+        _pendingEntry.playerName = playerName.value;
+        persistGameEntry(_pendingEntry);
+        _pendingEntry = null;
+      }
+      scoreSaved.value = true;
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // LEADERBOARD UI
+    // ════════════════════════════════════════════════════════════
+
+    function openLeaderboard() {
+      localLeaderboardData.value = LocalLeaderboard.getAll();
+      lbTab.value = 'local';
+      showLeaderboard.value = true;
+    }
+
+    async function switchToRemoteTab() {
+      lbTab.value = 'remote';
+      if (remoteLeaderboardData.value.length === 0) {
+        remoteLoading.value = true;
+        remoteLeaderboardData.value = await RemoteLeaderboard.fetchTop();
+        remoteLoading.value = false;
+      }
+    }
+
+    function lbMedal(i) {
+      return ['🥇', '🥈', '🥉'][i] ?? (i + 1);
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // CAMPAIGN
+    // ════════════════════════════════════════════════════════════
+
+    function isCampaignLevelUnlocked(levelIndex) {
+      if (levelIndex === 0) return true;
+      const prevId = CAMPAIGN_LEVELS[levelIndex - 1].id;
+      return !!campaignProgress.value[prevId];
+    }
+
+    function openCampaignSelector() {
+      campaignProgress.value = CampaignStore.getProgress();
+      showCampaignSelector.value = true;
+    }
+
+    /** Start campaign from a specific level (called from the selector grid). */
+    function openCampaignLevel(levelIndex) {
+      if (!isCampaignLevelUnlocked(levelIndex)) return;
+      _savedFreeSettings = { rowMin: settings.rowMin, rowMax: settings.rowMax };
+      campaignResults.value = [];
+      campaignActive.value = true;
+      showCampaignSelector.value = false;
+      _applyLevelSettings(levelIndex);
+      startGame();
+    }
+
+    /** "Von Anfang" button: always starts from level 0. */
+    function startCampaignFromBeginning() {
+      openCampaignLevel(0);
+    }
+
+    /** Advance to the next sequential campaign level (called from level-complete overlay). */
+    function advanceCampaign() {
+      const next = campaignLevelIndex.value + 1;
+      showCampaignLevelComplete.value = false;
+      if (next >= CAMPAIGN_LEVELS.length) {
+        _finishCampaign();
+      } else {
+        _applyLevelSettings(next);
+        startGame();
+      }
+    }
+
+    /** Retry the current campaign level after a game-over. */
+    function retryCampaignLevel() {
+      showGameOver.value = false;
+      _applyLevelSettings(campaignLevelIndex.value);
+      startGame();
+    }
+
+    function exitCampaign() {
+      campaignActive.value = false;
+      showCampaignLevelComplete.value = false;
+      showCampaignComplete.value = false;
+      _restoreFreeSettings();
+      exitToTable();
+    }
+
+    /** Called when all cells in a campaign level are opened. */
+    function onCampaignLevelWin() {
+      AudioEngine.levelUp();
+      const entry = buildGameEntry();
+      const levelId = CAMPAIGN_LEVELS[campaignLevelIndex.value].id;
+      // Store level result (immutable update pattern)
+      const newResults = [...campaignResults.value];
+      newResults[campaignLevelIndex.value] = { ...entry, levelId };
+      campaignResults.value = newResults;
+      CampaignStore.setLevelComplete(levelId, entry);
+      campaignProgress.value = CampaignStore.getProgress();
+      showCampaignLevelComplete.value = true;
+    }
+
+    function _finishCampaign() {
+      AudioEngine.win();
+      showCampaignComplete.value = true;
+      campaignActive.value = false;
+      _restoreFreeSettings();
+      // Save aggregate campaign score to leaderboard
+      const aggregate = {
+        ...buildGameEntry(),
+        score: campaignTotalScore.value,
+        campaignComplete: true,
+        playerName: playerName.value || 'Anonym',
+      };
+      persistGameEntry(aggregate);
+    }
+
+    function _applyLevelSettings(levelIndex) {
+      campaignLevelIndex.value = levelIndex;
+      const level = CAMPAIGN_LEVELS[levelIndex];
+      settings.rowMin = level.rowMin;
+      settings.rowMax = level.rowMax;
+    }
+
+    function _restoreFreeSettings() {
+      if (_savedFreeSettings) {
+        settings.rowMin = _savedFreeSettings.rowMin;
+        settings.rowMax = _savedFreeSettings.rowMax;
+        _savedFreeSettings = null;
+      }
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // MANUAL INPUT
+    // ════════════════════════════════════════════════════════════
+
+    function numpadPress(digit) {
+      if (selectionBlocked.value) return;
+      if (manualInputValue.value.length >= 3) return;
+      manualInputValue.value += digit;
+    }
+
+    function numpadDelete() {
+      if (selectionBlocked.value) return;
+      manualInputValue.value = manualInputValue.value.slice(0, -1);
+    }
+
+    function numpadSubmit() {
+      if (selectionBlocked.value) return;
+      const val = parseInt(manualInputValue.value);
+      if (isNaN(val) || manualInputValue.value === '') return;
+      manualInputValue.value = '';
+      selectAnswer(val);
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // KEYBOARD
+    // ════════════════════════════════════════════════════════════
+
+    function handleKeydown(e) {
+      // Let browser/input handle keys when an <input> overlay is focused
+      if (e.target && e.target.tagName === 'INPUT') return;
+      if (!gameMode.value) return;
+      if (settings.manualInput) {
+        if (e.key >= '0' && e.key <= '9') { e.preventDefault(); numpadPress(e.key); return; }
+        if (e.key === 'Backspace' || e.key === 'Delete') { e.preventDefault(); numpadDelete(); return; }
+        if (e.key === 'Enter') { e.preventDefault(); numpadSubmit(); return; }
+      }
+    }
+
+    onMounted(() => document.addEventListener('keydown', handleKeydown));
+    onUnmounted(() => document.removeEventListener('keydown', handleKeydown));
+
+    // ════════════════════════════════════════════════════════════
+    // EXPOSE TO TEMPLATE
+    // ════════════════════════════════════════════════════════════
+    return {
+      // Onboarding
+      showOnboarding, onboardingName, finishOnboarding,
+      // Settings
+      settings, showSettings, rangeNums, closeSettings,
+      // Player
+      playerName,
+      // Table layout
+      rowNums, colNums,
+      // Browse
+      activeRow, activeCol, showHighlight,
+      // Game state
+      gameMode, currentQuestion, options, timer, lives, score, combo,
+      openedCells, showGameOver, showWin, livesDisplay,
+      feedbackAnswer, feedbackCorrect, selectionBlocked, optionsVisible,
+      manualInputValue, manualInputShake,
+      statsCorrect, statsTotal, statsMaxCombo, avgTime,
+      // Campaign
+      campaignActive, campaignLevelIndex, campaignResults, campaignTotalScore,
+      campaignLevels: CAMPAIGN_LEVELS,
+      showCampaignSelector, showCampaignLevelComplete, showCampaignComplete,
+      campaignProgress,
+      // Score saving
+      scoreSaved, pendingNameValue,
+      // Leaderboard
+      showLeaderboard, lbTab, localLeaderboardData,
+      remoteLeaderboardData, remoteLoading,
+      // Cell helpers
+      cellBg, cellClass, cellContent, isRowActive, isColActive,
+      // Browse actions
+      toggleRow, toggleCol,
+      // Game actions
+      startFreeGame, exitToTable, onHudExit, selectAnswer,
+      // Manual input
+      numpadPress, numpadDelete, numpadSubmit, handleKeydown,
+      // Campaign actions
+      openCampaignSelector, openCampaignLevel, startCampaignFromBeginning,
+      advanceCampaign, exitCampaign, retryCampaignLevel,
+      isCampaignLevelUnlocked,
+      // Score & leaderboard
+      saveScore, openLeaderboard, switchToRemoteTab, lbMedal,
+    };
+  },
+}).mount('#app');
+
+// ════════════════════════════════════════════════════════════════════
+// PWA – INSTALL PROMPT
+// ════════════════════════════════════════════════════════════════════
+
+let deferredPrompt = null;
+const banner     = document.getElementById('install-banner');
+const installBtn = document.getElementById('install-btn');
+const dismissBtn = document.getElementById('dismiss-btn');
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  banner.style.display = 'flex';
+});
+installBtn.addEventListener('click', async () => {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  const { outcome } = await deferredPrompt.userChoice;
+  deferredPrompt = null;
+  banner.style.display = 'none';
+});
+dismissBtn.addEventListener('click', () => { banner.style.display = 'none'; });
+window.addEventListener('appinstalled', () => {
+  banner.style.display = 'none';
+  deferredPrompt = null;
+});
+
+// ════════════════════════════════════════════════════════════════════
+// PWA – SERVICE WORKER
+// ════════════════════════════════════════════════════════════════════
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js')
+      .then(reg => {
+        console.log('[SW] registered:', reg.scope);
+
+        // Check for updates every 60 seconds while the app is open
+        setInterval(() => reg.update(), 60 * 1000);
+
+        // When a new SW is waiting, skip waiting immediately (auto-update)
+        reg.addEventListener('updatefound', () => {
+          const newWorker = reg.installing;
+          if (!newWorker) return;
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              // New version installed – tell it to activate right away
+              newWorker.postMessage({ type: 'SKIP_WAITING' });
+            }
+          });
+        });
+      })
+      .catch(err => console.warn('[SW] registration failed:', err));
+
+    // When the SW sends SW_UPDATED, reload the page to get fresh assets
+    navigator.serviceWorker.addEventListener('message', (event) => {
+      if (event.data && event.data.type === 'SW_UPDATED') {
+        console.log('[SW] New version active – reloading…');
+        window.location.reload();
+      }
+    });
+  });
+}
+</script>
+</body>
+</html>
