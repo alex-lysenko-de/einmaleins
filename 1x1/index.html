@@ -598,6 +598,9 @@ td.cell.col-active { opacity: 0.85; }
   touch-action: manipulation;
 }
 .lb-tab.active { background: #4a6cf7; color: white; border-color: #4a6cf7; }
+.lb-current-user td { background: #fffbe6 !important; border-bottom: 2px solid #f6ad55 !important; font-weight: bold; }
+.lb-current-user .lb-name { color: #c05621; }
+.lb-dots td { text-align: center; color: #bbb; font-size: 18px; padding: 2px; border-bottom: none; }
 
 /* ─── Onboarding overlay ─────────────────────────────────────────── */
 .onboarding-box {
@@ -721,6 +724,8 @@ td.cell.col-active { opacity: 0.85; }
       <button class="icon-btn" @click="openCampaignSelector" title="Kampagne">&#128506;&#65039;</button>
       <button class="icon-btn" @click="openLeaderboard" title="Bestenliste">&#127942;</button>
       <button class="icon-btn" @click="showSettings = true" title="Einstellungen">&#9881;&#65039;</button>
+      <button class="icon-btn" @click="testRemoteSubmit" title="Test: 0 Punkte senden" style="background:#fff0f0;border-color:#f99">&#128203;</button>
+      <button class="icon-btn" @click="debugReadBin" title="Bin-Inhalt anzeigen" style="background:#f0fff0;border-color:#9f9">&#128269;</button>
     </div>
 
     <!-- ── Question + answers ─────────────────────────────────────── -->
@@ -819,17 +824,9 @@ td.cell.col-active { opacity: 0.85; }
         <div class="stat-row"><span>&#9201; Ø Zeit</span><strong>{{ avgTime }} s</strong></div>
         <div class="stat-row" v-if="statsMaxCombo >= 2"><span>&#128293; Max. Kombo</span><strong>x{{ statsMaxCombo }}</strong></div>
       </div>
-      <!-- Name prompt / saved badge -->
+      <!-- Saved badge -->
       <template v-if="!campaignActive">
-        <div v-if="!scoreSaved" class="name-prompt">
-          <input class="name-input" type="text" v-model="pendingNameValue"
-                 :placeholder="playerName || 'Dein Name…'" maxlength="20"
-                 @keydown.stop @keyup.enter="saveScore">
-          <button class="name-save-btn" @click="saveScore" :disabled="!pendingNameValue.trim() && !playerName">
-            &#128190;
-          </button>
-        </div>
-        <div v-else class="score-saved-badge">&#10004; Gespeichert als <strong>{{ playerName }}</strong></div>
+        <div class="score-saved-badge">&#10004; Gespeichert</div>
       </template>
       <!-- Buttons -->
       <div class="btn-row">
@@ -857,15 +854,7 @@ td.cell.col-active { opacity: 0.85; }
         <div class="stat-row"><span>&#9201; Ø Zeit</span><strong>{{ avgTime }} s</strong></div>
         <div class="stat-row" v-if="statsMaxCombo >= 2"><span>&#128293; Max. Kombo</span><strong>x{{ statsMaxCombo }}</strong></div>
       </div>
-      <div v-if="!scoreSaved" class="name-prompt">
-        <input class="name-input" type="text" v-model="pendingNameValue"
-               :placeholder="playerName || 'Dein Name…'" maxlength="20"
-               @keydown.stop @keyup.enter="saveScore">
-        <button class="name-save-btn" @click="saveScore" :disabled="!pendingNameValue.trim() && !playerName">
-          &#128190;
-        </button>
-      </div>
-      <div v-else class="score-saved-badge">&#10004; Gespeichert als <strong>{{ playerName }}</strong></div>
+      <div class="score-saved-badge">&#10004; Gespeichert</div>
       <div class="btn-row">
         <button class="replay-btn" @click="startFreeGame">Nochmal spielen</button>
         <button class="exit-btn" @click="exitToTable">Zur Tabelle</button>
@@ -951,47 +940,62 @@ td.cell.col-active { opacity: 0.85; }
       <h2>&#127942; Bestenliste</h2>
       <div class="lb-tabs">
         <button class="lb-tab" :class="{active: lbTab === 'local'}" @click="lbTab = 'local'">
-          &#128187; Lokal
+          &#128100; Meine Spiele
         </button>
         <button class="lb-tab" :class="{active: lbTab === 'remote'}" @click="switchToRemoteTab">
-          &#127760; Weltweit
+          &#127760; Globale Bestenliste
         </button>
       </div>
 
-      <!-- Local leaderboard -->
+      <!-- Local history: all games, sorted by date newest-first, no name column -->
       <table v-if="lbTab === 'local'" class="leaderboard-table">
         <thead>
-          <tr><th class="lb-rank">#</th><th>Name</th><th>Pkt</th><th>Richtig</th></tr>
+          <tr>
+            <th>Punkte</th>
+            <th>Richtige</th>
+            <th>Level</th>
+            <th>Datum</th>
+          </tr>
         </thead>
         <tbody>
-          <tr v-for="(e, i) in localLeaderboardData" :key="i">
-            <td class="lb-rank">{{ lbMedal(i) }}</td>
-            <td class="lb-name">{{ e.playerName }}</td>
+          <tr v-for="(e, i) in gameHistoryData" :key="i">
             <td class="lb-score">{{ e.score }}</td>
-            <td>{{ e.correct }}/{{ e.total }}</td>
+            <td>{{ e.correctAnswers }}/{{ e.total }}</td>
+            <td style="font-size:11px;color:#888">{{ e.level }}</td>
+            <td style="font-size:11px;color:#888;white-space:nowrap">{{ formatDate(e.date) }}</td>
           </tr>
-          <tr v-if="localLeaderboardData.length === 0">
-            <td colspan="4" class="lb-empty">Noch keine Einträge. Spiel und werde der Erste!</td>
+          <tr v-if="gameHistoryData.length === 0">
+            <td colspan="4" class="lb-empty">Noch keine Spiele. Spielen und Erster werden!</td>
           </tr>
         </tbody>
       </table>
 
-      <!-- Remote leaderboard -->
+      <!-- Remote leaderboard: top-10 + current user always shown -->
       <div v-if="lbTab === 'remote'">
         <div v-if="remoteLoading" style="text-align:center;padding:20px;color:#aaa">
           Lade…
         </div>
         <table v-else class="leaderboard-table">
           <thead>
-            <tr><th class="lb-rank">#</th><th>Name</th><th>Pkt</th></tr>
+            <tr><th class="lb-rank">Platz</th><th>Name</th><th>Punkte</th></tr>
           </thead>
           <tbody>
-            <tr v-for="(e, i) in remoteLeaderboardData" :key="i">
+            <tr v-for="(e, i) in remoteLeaderboardData.top10" :key="'r'+i"
+                :class="{ 'lb-current-user': e.userId === playerGuid }">
               <td class="lb-rank">{{ lbMedal(i) }}</td>
               <td class="lb-name">{{ e.name }}</td>
               <td class="lb-score">{{ e.score }}</td>
             </tr>
-            <tr v-if="remoteLeaderboardData.length === 0">
+            <!-- Separator + current user row if outside top-10 -->
+            <template v-if="remoteLeaderboardData.userEntry">
+              <tr class="lb-dots"><td colspan="3">···</td></tr>
+              <tr class="lb-current-user">
+                <td class="lb-rank">{{ remoteLeaderboardData.userEntry.rank }}</td>
+                <td class="lb-name">{{ remoteLeaderboardData.userEntry.name }}</td>
+                <td class="lb-score">{{ remoteLeaderboardData.userEntry.score }}</td>
+              </tr>
+            </template>
+            <tr v-if="remoteLeaderboardData.top10.length === 0">
               <td colspan="3" class="lb-empty">Noch keine weltweiten Einträge.</td>
             </tr>
           </tbody>
@@ -1120,8 +1124,7 @@ const STORAGE_KEYS = {
   settings:         'einmaleins:settings',
   playerName:       'einmaleins:playerName',
   playerGuid:       'einmaleins:playerGuid',
-  localLeaderboard: 'einmaleins:localLeaderboard',
-  history:          'einmaleins:history',
+  gameHistory:      'einmaleins:gameHistory',
   campaignProgress: 'einmaleins:campaignProgress',
 };
 
@@ -1185,19 +1188,26 @@ const CampaignStore = {
 };
 
 // ════════════════════════════════════════════════════════════════════
-// LOCAL LEADERBOARD
+// GAME HISTORY  (local, unlimited, date-sorted newest-first)
 // ════════════════════════════════════════════════════════════════════
 
-const LocalLeaderboard = {
-  MAX_ENTRIES: 10,
-  getAll() { return Storage.get(STORAGE_KEYS.localLeaderboard, []); },
+const GameHistory = {
+  getAll() {
+    return Storage.get(STORAGE_KEYS.gameHistory, []);
+  },
   addEntry(entry) {
     const all = this.getAll();
-    all.push({ ...entry, timestamp: new Date().toISOString() });
-    all.sort((a, b) => b.score - a.score);
-    const trimmed = all.slice(0, this.MAX_ENTRIES);
-    Storage.set(STORAGE_KEYS.localLeaderboard, trimmed);
-    return trimmed;
+    // Build history record with canonical structure
+    const record = {
+      score:          entry.score,
+      correctAnswers: entry.correct ?? 0,
+      total:          entry.total   ?? 0,
+      level:          `×${entry.settings?.rowMin ?? 2}–×${entry.settings?.rowMax ?? 9}`,
+      date:           new Date().toISOString(),
+    };
+    all.unshift(record);                              // newest first
+    Storage.set(STORAGE_KEYS.gameHistory, all);       // no limit
+    return all;
   },
 };
 
@@ -1227,7 +1237,7 @@ const RemoteLeaderboard = (() => {
   const API_KEY = '$2a$10$NPCaffxcpTEMpt/8W.8p2OhIJQV76Rop9qqqZB.dGPjdtVNAkEOsS';
   const BASE    = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
   const LOCK_TTL_MS = 5000;   // stale lock age
-  const MAX_DISPLAY = 20;
+  const MAX_DISPLAY = 10;
 
   const headers = () => ({
     'Content-Type': 'application/json',
@@ -1345,22 +1355,34 @@ const RemoteLeaderboard = (() => {
     },
 
     /**
-     * Fetch and return top-20 entries for display.
-     * Joins users + scores, sorts descending by bestScore, trims to MAX_DISPLAY.
+     * Fetch top-10 entries plus the current user's own entry (if outside top-10).
+     * Returns { top10, userEntry } where userEntry may be null.
      */
-    async fetchTop() {
+    async fetchForDisplay(userId) {
       try {
         const data = await _read();
         const userMap = {};
         for (const u of data.users) userMap[u.guid] = u.name;
 
-        const merged = data.scores
-          .map(s => ({ name: userMap[s.userId] || 'Anonym', score: s.bestScore }))
-          .sort((a, b) => b.score - a.score)
-          .slice(0, MAX_DISPLAY);
+        const sorted = data.scores
+          .map(s => ({ name: userMap[s.userId] || 'Anonym', score: s.bestScore, userId: s.userId }))
+          .sort((a, b) => b.score - a.score);
 
-        return merged;
-      } catch { return []; }
+        const top10 = sorted.slice(0, MAX_DISPLAY);
+        const userRank = sorted.findIndex(e => e.userId === userId);
+        const userInTop = userRank >= 0 && userRank < MAX_DISPLAY;
+        const userEntry = userRank >= 0 && !userInTop
+          ? { ...sorted[userRank], rank: userRank + 1 }
+          : null;
+
+        return { top10, userEntry, userRank: userRank >= 0 ? userRank + 1 : null };
+      } catch { return { top10: [], userEntry: null, userRank: null }; }
+    },
+
+    /** @deprecated use fetchForDisplay */
+    async fetchTop() {
+      const { top10 } = await this.fetchForDisplay(null);
+      return top10;
     },
   };
 
@@ -1566,8 +1588,8 @@ createApp({
     // ── Leaderboard state ─────────────────────────────────────────
     const showLeaderboard       = ref(false);
     const lbTab                 = ref('local');
-    const localLeaderboardData  = ref(LocalLeaderboard.getAll());
-    const remoteLeaderboardData = ref([]);
+    const gameHistoryData       = ref(GameHistory.getAll());
+    const remoteLeaderboardData = ref({ top10: [], userEntry: null, userRank: null });
     const remoteLoading         = ref(false);
 
     // ── Timers ────────────────────────────────────────────────────
@@ -1906,44 +1928,55 @@ createApp({
       };
     }
 
-    /** Called after a free game ends (not campaign). Triggers score save flow. */
+    /** Called after a free game ends (not campaign). Auto-saves immediately. */
     function onGameEnd() {
-      _pendingEntry = buildGameEntry();
-      if (playerName.value) {
-        // Name known: save immediately and show badge
-        _pendingEntry.playerName = playerName.value;
-        persistGameEntry(_pendingEntry);
-        scoreSaved.value = true;
-        _pendingEntry = null;
-      }
-      // Otherwise the name-prompt in the overlay collects the name first
+      const entry = buildGameEntry();
+      persistGameEntry(entry);
+      scoreSaved.value = true;
     }
 
-    /** Save entry to local leaderboard, history, and optionally remote. */
+    /** Save entry to game history (local) and remote leaderboard. */
     function persistGameEntry(entry) {
-      const updated = LocalLeaderboard.addEntry(entry);
-      localLeaderboardData.value = updated;
-      // Append to history (keep last 50)
-      const history = Storage.get(STORAGE_KEYS.history, []);
-      history.unshift(entry);
-      Storage.set(STORAGE_KEYS.history, history.slice(0, 50));
+      const updated = GameHistory.addEntry(entry);
+      gameHistoryData.value = updated;
       // Fire-and-forget remote submission (best score per user)
       RemoteLeaderboard.submit(LOCAL_GUID, entry.score);
     }
 
-    /** Called when user clicks the 💾 button in the result overlay. */
-    function saveScore() {
-      const name = pendingNameValue.value.trim() || playerName.value;
-      if (!name) return;
-      if (pendingNameValue.value.trim()) {
-        playerName.value = pendingNameValue.value.trim();
+    // saveScore removed — scores are saved automatically in onGameEnd
+
+    /** TEST: submit score=0 to remote leaderboard */
+    async function testRemoteSubmit() {
+      const result = await RemoteLeaderboard.submit(LOCAL_GUID, 0);
+      alert(result.ok ? '✅ Test-Eintrag (0 Pkt) erfolgreich gespeichert!' : '❌ Fehler: ' + result.reason);
+    }
+
+    /** DEBUG: read raw bin content and show in alert */
+    async function debugReadBin() {
+      try {
+        const BIN_ID  = '69ad95cfae596e708f6d22d8';
+        const API_KEY = '$2a$10$NPCaffxcpTEMpt/8W.8p2OhIJQV76Rop9qqqZB.dGPjdtVNAkEOsS';
+        const r = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, {
+          headers: { 'Content-Type': 'application/json', 'X-Access-Key': API_KEY }
+        });
+        const d = await r.json();
+        const rec = d?.record ?? {};
+        const users  = (rec.users  || []).length;
+        const scores = (rec.scores || []);
+        const summary = [
+          `HTTP: ${r.status}`,
+          `users: ${users}`,
+          `scores: ${scores.length}`,
+          `LOCAL_GUID: ${LOCAL_GUID}`,
+          `---`,
+          ...scores.map((s,i) => `#${i+1} userId=${s.userId?.slice(0,8)}… bestScore=${s.bestScore}`),
+          `---`,
+          `RAW: ${JSON.stringify(rec).slice(0, 400)}`,
+        ].join('\n');
+        alert(summary);
+      } catch(e) {
+        alert('❌ Read error: ' + e.message);
       }
-      if (_pendingEntry) {
-        _pendingEntry.playerName = playerName.value;
-        persistGameEntry(_pendingEntry);
-        _pendingEntry = null;
-      }
-      scoreSaved.value = true;
     }
 
     // ════════════════════════════════════════════════════════════
@@ -1951,22 +1984,31 @@ createApp({
     // ════════════════════════════════════════════════════════════
 
     function openLeaderboard() {
-      localLeaderboardData.value = LocalLeaderboard.getAll();
+      gameHistoryData.value = GameHistory.getAll();
       lbTab.value = 'local';
       showLeaderboard.value = true;
     }
 
     async function switchToRemoteTab() {
       lbTab.value = 'remote';
-      if (remoteLeaderboardData.value.length === 0) {
+      if (remoteLeaderboardData.value.top10.length === 0) {
         remoteLoading.value = true;
-        remoteLeaderboardData.value = await RemoteLeaderboard.fetchTop();
+        remoteLeaderboardData.value = await RemoteLeaderboard.fetchForDisplay(LOCAL_GUID);
         remoteLoading.value = false;
       }
     }
 
     function lbMedal(i) {
       return ['🥇', '🥈', '🥉'][i] ?? (i + 1);
+    }
+
+    /** Format ISO date string to German locale short format */
+    function formatDate(isoStr) {
+      try {
+        const d = new Date(isoStr);
+        const pad = n => String(n).padStart(2, '0');
+        return `${pad(d.getDate())}.${pad(d.getMonth()+1)}.${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      } catch { return isoStr; }
     }
 
     // ════════════════════════════════════════════════════════════
@@ -2121,7 +2163,7 @@ createApp({
       // Settings
       settings, showSettings, rangeNums, closeSettings,
       // Player
-      playerName,
+      playerName, playerGuid: LOCAL_GUID,
       // Table layout
       rowNums, colNums,
       // Browse
@@ -2137,10 +2179,9 @@ createApp({
       campaignLevels: CAMPAIGN_LEVELS,
       showCampaignSelector, showCampaignLevelComplete, showCampaignComplete,
       campaignProgress,
-      // Score saving
-      scoreSaved, pendingNameValue,
+      // Score saving (internal only)
       // Leaderboard
-      showLeaderboard, lbTab, localLeaderboardData,
+      showLeaderboard, lbTab, gameHistoryData,
       remoteLeaderboardData, remoteLoading,
       // Cell helpers
       cellBg, cellClass, cellContent, isRowActive, isColActive,
@@ -2155,7 +2196,7 @@ createApp({
       advanceCampaign, exitCampaign, retryCampaignLevel,
       isCampaignLevelUnlocked,
       // Score & leaderboard
-      saveScore, openLeaderboard, switchToRemoteTab, lbMedal,
+      openLeaderboard, switchToRemoteTab, lbMedal, formatDate, testRemoteSubmit, debugReadBin,
     };
   },
 }).mount('#app');
