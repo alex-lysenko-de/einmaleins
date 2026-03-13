@@ -1,3 +1,4 @@
+import { markRaw }  from 'vue'
 import { useGame }   from '../../composables/useGame.js'
 import { useMemory } from '../../composables/useMemory.js'
 import { useExam }   from '../../composables/useExam.js'
@@ -17,7 +18,7 @@ export function useGames() {
       name:        'Kampf gegen Monster',
       description: 'Beantworte Aufgaben um das Monster zu besiegen!',
       emoji:       '👾',
-      LevelPicker: BattleLevelPicker,
+      LevelPicker: markRaw(BattleLevelPicker),
       start:       (level) => startGame(level),
     },
     {
@@ -25,7 +26,7 @@ export function useGames() {
       name:        'Memory Spiel',
       description: 'Finde Paare und trainiere dein Gedächtnis!',
       emoji:       '🃏',
-      LevelPicker: MemoryLevelPicker,
+      LevelPicker: markRaw(MemoryLevelPicker),
       start:       (level) => startMemory(level),
     },
     {
@@ -33,7 +34,7 @@ export function useGames() {
       name:        'Schnelltest',
       description: 'Beantworte alle Aufgaben schnell hintereinander!',
       emoji:       '⚡',
-      LevelPicker: ExamLevelPicker,
+      LevelPicker: markRaw(ExamLevelPicker),
       start:       (level) => startExam(level),
     },
   ]
