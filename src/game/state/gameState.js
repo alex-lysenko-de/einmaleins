@@ -10,7 +10,7 @@ export function createGameState(level) {
     currentTask: null,
     rows:        0,
     cols:        0,
-    visualMode:  'rows',
+    visualMode:  'bucket', // 'bucket' | 'rows' | 'numbers'
     buckets:     [],
   }
 }

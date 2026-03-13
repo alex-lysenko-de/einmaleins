@@ -1,14 +1,15 @@
 <script setup>
 import { ref } from 'vue'
-import { useGame }   from '../../composables/useGame.js'
-import { useMemory } from '../../composables/useMemory.js'
-import { useExam } from '../../composables/useExam.js'
-import { LEVELS }    from '../../game/data/levels.js'
+import { useGames }   from '../menu/games.js'
+import GameSelection  from '../menu/GameSelection.vue'
+import LevelSelection from '../menu/LevelSelection.vue'
 
-const { startGame }   = useGame()
-const { startMemory } = useMemory()
-const { startExam } = useExam()
-const selectedLevel   = ref(2)
+const games        = useGames()
+const selectedGame = ref(null)
+
+function onGameSelected(game) { selectedGame.value = game }
+function onBack()             { selectedGame.value = null }
+function onStart(level)       { selectedGame.value.start(level) }
 </script>
 
 <template>
@@ -23,25 +24,16 @@ const selectedLevel   = ref(2)
       <div class="subtitle">Einfach. Schnell. Gelernt.</div>
     </div>
 
-    <div class="level-section">
-      <h2>LEVEL WÄHLEN</h2>
-      <div class="level-grid">
-        <button
-          v-for="lvl in LEVELS" :key="lvl"
-          class="level-btn"
-          :class="{ selected: selectedLevel === lvl }"
-          @click="selectedLevel = lvl"
-        >
-          ×{{ lvl }}
-          <small>{{ lvl }}er</small>
-        </button>
-      </div>
-    </div>
-
-    <div class="menu-play-btns">
-      <button class="play-btn" @click="startGame(selectedLevel)">Spiel&nbsp;1</button>
-      <button class="play-btn memory-btn" @click="startMemory(selectedLevel)">Spiel&nbsp;2</button>
-      <button class="play-btn memory-btn" @click="startExam(selectedLevel)">Spiel&nbsp;3</button>
-    </div>
+    <GameSelection
+      v-if="!selectedGame"
+      :games="games"
+      @select="onGameSelected"
+    />
+    <LevelSelection
+      v-else
+      :game="selectedGame"
+      @back="onBack"
+      @start="onStart"
+    />
   </div>
 </template>

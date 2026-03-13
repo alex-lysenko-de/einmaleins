@@ -184,6 +184,128 @@ html, body {
   box-shadow: 0 12px 40px rgba(124,58,237,0.55) !important;
 }
 
+/* Game and Level Selection Screens */
+.game-selection, .level-selection {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.game-selection h2, .level-selection h2 {
+  font-family: 'Fredoka One', cursive;
+  font-size: 1.1rem;
+  color: var(--muted);
+  text-align: center;
+  margin-bottom: 12px;
+  letter-spacing: 1px;
+}
+
+.game-cards {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.game-card {
+  background: var(--surface2);
+  border: 2px solid transparent;
+  border-radius: 16px;
+  padding: 20px 16px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.game-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(255,107,53,0.25);
+}
+
+.game-card-emoji {
+  font-size: 2rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.game-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.game-card-title {
+  font-family: 'Fredoka One', cursive;
+  font-size: 1.1rem;
+  color: var(--text);
+}
+
+.game-card-description {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.level-selection {
+  position: relative;
+}
+
+.back-btn {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.95rem;
+  cursor: pointer;
+  padding: 8px 0;
+  margin-bottom: 16px;
+  transition: color 0.2s;
+}
+
+.back-btn:hover {
+  color: var(--accent2);
+}
+
+.level-subtitle {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  color: var(--muted);
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+.start-btn {
+  width: 100%;
+  background: linear-gradient(135deg, var(--accent), #e8521f);
+  border: none;
+  border-radius: 16px;
+  padding: 18px 32px;
+  font-family: 'Fredoka One', cursive;
+  font-size: 1.5rem;
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 8px 30px rgba(255,107,53,0.4);
+  letter-spacing: 1px;
+  margin-top: 16px;
+}
+
+.start-btn:hover {
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 0 12px 40px rgba(255,107,53,0.55);
+}
+
+.start-btn:active {
+  transform: translateY(0) scale(0.98);
+}
+
 /* ============ GAME SCREEN ============ */
 .game-screen {
   display: flex;
