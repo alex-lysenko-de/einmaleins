@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, onUnmounted } from 'vue'
+import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { useExam } from '../../composables/useExam.js'
 
 const {
@@ -12,6 +12,9 @@ const {
   handleKeydown,
   goMenu,
 } = useExam()
+
+const showApples = ref(false)
+watch(() => state.answered, () => { showApples.value = false })
 
 onMounted(()   => document.addEventListener('keydown', handleKeydown))
 onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
@@ -49,8 +52,8 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
         </div>
       </div>
 
-      <!-- Apple grid: a rows × b apples -->
-      <div class="exam-apples-viz">
+      <!-- Apple grid: revealed on demand -->
+      <div v-if="showApples" class="exam-apples-viz">
         <div v-for="row in currentQ.a" :key="row" class="exam-apple-row">
           <span
             v-for="col in currentQ.b"
@@ -60,6 +63,7 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
           >🍎</span>
         </div>
       </div>
+      <button v-else class="exam-hint-btn" @click="showApples = true">🍎 Zeigen</button>
     </div>
 
     <!-- Numpad -->

@@ -894,6 +894,24 @@ html, body {
   border-color: transparent;
 }
 
+.exam-hint-btn {
+  display: block;
+  margin: 0.5rem auto 0;
+  padding: 0.45rem 1.2rem;
+  background: var(--surface2);
+  color: var(--muted);
+  border: 2px dashed var(--surface2);
+  border-radius: 2rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s;
+}
+.exam-hint-btn:hover {
+  color: var(--text);
+  border-color: var(--muted);
+}
+
 /* ============ EXAM RESULT SCREEN ============ */
 
 .exam-result-screen {
