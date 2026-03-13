@@ -1,0 +1,1 @@
+const e=[{emoji:"👾",name:"Alien Grumpy"},{emoji:"🧟",name:"Zombie Karl"},{emoji:"🐉",name:"Drachen Zola"},{emoji:"👻",name:"Geist Max"},{emoji:"🤖",name:"Roboter Rex"},{emoji:"🦇",name:"Fledermaus"},{emoji:"🧌",name:"Troll Brunno"},{emoji:"🦑",name:"Kraken Kira"}];function n(m){return e[(m-2)%e.length]}export{n as m};
