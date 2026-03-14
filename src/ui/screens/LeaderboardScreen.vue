@@ -1,11 +1,16 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { fetchLeaderboard } from '../../services/leaderboard.js'
 import { getOrCreateGuid, getPlayerName, getHistory } from '../../services/playerStore.js'
 import { router } from '../../router/index.js'
+import { useRoute } from 'vue-router'
 
+const route       = useRoute()
 const userId      = getOrCreateGuid()
 const playerName  = getPlayerName()
+
+// view: 'global' | 'local' | null (both)
+const view = computed(() => route.query.view || null)
 
 const loading     = ref(true)
 const error       = ref('')
@@ -16,12 +21,20 @@ const myRank      = ref(null)
 // Local history
 const history     = ref(getHistory().slice(0, 10))
 
+const pageTitle = computed(() => {
+  if (view.value === 'global') return '🌍 Globale Tabelle'
+  if (view.value === 'local')  return '📋 Meine letzten Spiele'
+  return '🏆 Bestenliste'
+})
+
 onMounted(async () => {
-  const result = await fetchLeaderboard(userId)
-  if (result.error) error.value = 'Verbindung fehlgeschlagen'
-  top10.value   = result.top10
-  myEntry.value = result.myEntry
-  myRank.value  = result.myRank
+  if (view.value !== 'local') {
+    const result = await fetchLeaderboard(userId)
+    if (result.error) error.value = 'Verbindung fehlgeschlagen'
+    top10.value   = result.top10
+    myEntry.value = result.myEntry
+    myRank.value  = result.myRank
+  }
   loading.value = false
 })
 
@@ -42,11 +55,14 @@ function medalFor(rank) {
         class="bg-surface border border-surface2 rounded-xl px-3.5 py-2 text-muted font-nunito text-sm font-bold transition-all hover:text-white hover:border-accent"
         @click="router.push({ name: 'menu' })"
       >← Menü</button>
-      <div class="font-fredoka text-base text-accent2">🏆 Bestenliste</div>
+      <div class="font-fredoka text-base text-accent2">{{ pageTitle }}</div>
     </div>
 
-    <!-- Global leaderboard -->
-    <div class="bg-surface border border-surface2 rounded-2xl p-4 flex flex-col gap-3">
+    <!-- Global leaderboard: shown when view is 'global' or null -->
+    <div
+      v-if="view !== 'local'"
+      class="bg-surface border border-surface2 rounded-2xl p-4 flex flex-col gap-3"
+    >
       <h2 class="font-fredoka text-lg text-white">🌍 Globale Tabelle</h2>
 
       <div v-if="loading" class="flex justify-center py-6">
@@ -94,8 +110,11 @@ function medalFor(rank) {
       </template>
     </div>
 
-    <!-- Local history -->
-    <div class="bg-surface border border-surface2 rounded-2xl p-4 flex flex-col gap-3">
+    <!-- Local history: shown when view is 'local' or null -->
+    <div
+      v-if="view !== 'global'"
+      class="bg-surface border border-surface2 rounded-2xl p-4 flex flex-col gap-3"
+    >
       <h2 class="font-fredoka text-lg text-white">📋 Meine letzten Spiele</h2>
 
       <p v-if="!history.length" class="text-muted font-nunito text-sm text-center py-2">

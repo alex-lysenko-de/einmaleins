@@ -1,7 +1,7 @@
 {
   "name": "Einmaleins – Mathe-Lernspiel",
   "short_name": "Einmaleins",
-  "description": "Spielerisch das kleine Einmaleins lernen – Monster besiegen, Memory spielen und Schnelltests meistern!",
+  "description": "Spielerisch das kleine Einmaleins lernen – Monster besiegen und Schnelltests meistern!",
   "start_url": "/einmaleins/#/",
   "scope": "/einmaleins/",
   "display": "standalone",

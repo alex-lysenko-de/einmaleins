@@ -15,7 +15,7 @@ export function useGames() {
   return [
     {
       id:          'memory',
-      name:        'Finde das Paar',
+      name:        'Spiel#1 Finde das Paar',
       description: 'Wähle selbst: Aufgabe und Antwort',
       emoji:       '🃏',
       LevelPicker: markRaw(MemoryLevelPicker),
@@ -24,7 +24,7 @@ export function useGames() {
 
     {
       id:          'battle',
-      name:        'Rückwärts',
+      name:        'Spiel#2 Rückwärts',
       description: 'Sieh die Antwort – finde die Aufgabe! (Reverse)',
       emoji:       '👾',
       LevelPicker: markRaw(BattleLevelPicker),
@@ -33,7 +33,7 @@ export function useGames() {
 
     {
       id:          'exam',
-      name:        'Schnelltest',
+      name:        'Spiel#3 Schnelltest',
       description: 'Beantworte alle Aufgaben schnell hintereinander!',
       emoji:       '⚡',
       LevelPicker: markRaw(ExamLevelPicker),
