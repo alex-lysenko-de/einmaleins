@@ -49,6 +49,23 @@ function cancelRename() {
   renameError.value    = ''
 }
 
+// Share
+const shareCopied = ref(false)
+async function shareApp() {
+  const shareData = {
+    title: 'EinMalEins',
+    text: '🎮 Lerne das Einmaleins mit diesem coolen Spiel!',
+    url: window.location.origin + window.location.pathname,
+  }
+  if (navigator.share) {
+    try { await navigator.share(shareData) } catch {}
+  } else {
+    await navigator.clipboard.writeText(shareData.url)
+    shareCopied.value = true
+    setTimeout(() => { shareCopied.value = false }, 2000)
+  }
+}
+
 function goGlobalTable() {
   closeSettings()
   router.push({ name: 'leaderboard', query: { view: 'global' } })
@@ -166,12 +183,20 @@ function goMyGames() {
     </div>
 
     <!-- Logo -->
-    <div class="text-center mb-7">
+    <div class="text-center mb-5">
       <h1 class="font-fredoka text-3xl sm:text-4xl text-accent2 drop-shadow-[0_0_30px_rgba(255,209,102,0.5)] leading-tight">
         EinMalEins
       </h1>
-
     </div>
+
+    <!-- Share button -->
+    <button
+      class="flex items-center gap-1.5 mb-5 bg-surface border border-surface2 rounded-xl px-4 py-1.5 font-nunito text-sm font-bold text-muted transition-all hover:text-white hover:border-accent2"
+      @click="shareApp"
+    >
+      <span>{{ shareCopied ? '✅' : '🔗' }}</span>
+      <span>{{ shareCopied ? 'Link kopiert!' : 'Spiel teilen' }}</span>
+    </button>
 
     <GameSelection
       v-if="!selectedGame"
