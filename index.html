@@ -3,11 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
-    <title>Einmaleins – Mathe-Lernspiel</title>
+    <title>EinMalEins mit Spaß</title>
     <meta name="description" content="Spielerisch das kleine Einmaleins lernen – Monster besiegen, Memory spielen und Schnelltests meistern!" />
 
-    <!-- PWA: relativer Pfad → funktioniert nach Vite-Build auf gh-pages korrekt -->
+    <!-- PWA -->
     <link rel="manifest" href="manifest.json" />
     <meta name="theme-color" content="#ff6b35" />
     <meta name="mobile-web-app-capable" content="yes" />
@@ -20,10 +19,15 @@
 
     <!-- Favicon -->
     <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
-    <script type="module" crossorigin src="/einmaleins/assets/index-BFeD23HW.js"></script>
-    <link rel="stylesheet" crossorigin href="/einmaleins/assets/index-cJ9hLIjb.css">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet" />
+    <script type="module" crossorigin src="/einmaleins/assets/index-eFyF_p6A.js"></script>
+    <link rel="stylesheet" crossorigin href="/einmaleins/assets/index-CMI_6q64.css">
   </head>
-  <body>
+  <body class="bg-bg text-white font-nunito overflow-x-hidden">
     <div id="app"></div>
   </body>
 </html>
