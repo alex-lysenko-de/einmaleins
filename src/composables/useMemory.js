@@ -1,4 +1,4 @@
-import { reactive, computed } from 'vue'
+import { reactive, computed, ref } from 'vue'
 import { createMemoryCards }              from '../game/modes/memoryMode.js'
 import { monsterForLevel }                from '../game/data/monsters.js'
 import { playSuccess, playError, playVictory } from '../game/audio/audioEngine.js'
@@ -6,105 +6,347 @@ import { useAppleAnimation, spawnApple }  from './useAppleAnimation.js'
 import { useConfetti }                    from './useConfetti.js'
 import { router }                         from '../router/index.js'
 
-const MAX_HP = 9
+const MAX_PLAYER_HP    = 9
+const EXPLOSION_DELAY  = 550   // ms — block "explodes" before vanishing
+const GRAVITY_DELAY    = 700   // ms — delay between each gravity step
+const MONSTER_TIMEOUT  = 6000  // ms — monster escapes after 6 s
 
-// ── Singleton ─────────────────────────────────────────────────────────────────
+// ── Singleton state ───────────────────────────────────────────────────────────
 const state = reactive({
   level:          2,
   questions:      [],
-  answers:        [],
+  answers:        [],       // flat list of all 9 answer cards
+  grid:           [],       // 3-row × 3-col live grid; grid[r][c] = card | null
   activeQuestion: null,
-  monsterHP:      MAX_HP,
-  playerHP:       MAX_HP,
+  playerHP:       MAX_PLAYER_HP,
   locked:         false,
+  monstersKilled: 0,
+
+  monster: {
+    status:          'hidden',  // 'hidden' | 'appeared' | 'escaping' | 'dead' | 'escaped'
+    col:             null,      // column index 0-2 in the bottom row (row 2)
+    hiddenBehindId:  null,      // id of the answer card currently hiding the monster
+    timeLeft:        0,         // seconds remaining in appeared state
+    appearCount:     0,         // increments each time monster appears → CSS key
+    escapeDir:       0,         // -1 left, +1 right  (for CSS animation)
+    _timer:          null,
+    _interval:       null,
+  },
 })
+
+// Track which card ids just "landed" after a fall (for bounce animation)
+const fallingIds = ref({})
 
 const currentMonster = computed(() => monsterForLevel(state.level))
 const { monsterShaking, playerShaking } = useAppleAnimation()
 const { launchConfetti } = useConfetti()
 
+// ── Grid helpers ──────────────────────────────────────────────────────────────
+
+function buildGrid(answers) {
+  // Row 0 = top, row 2 = bottom
+  return [
+    [answers[0] ?? null, answers[1] ?? null, answers[2] ?? null],
+    [answers[3] ?? null, answers[4] ?? null, answers[5] ?? null],
+    [answers[6] ?? null, answers[7] ?? null, answers[8] ?? null],
+  ]
+}
+
+/** Returns a Set of card-ids that are currently supported (won't fall). */
+function findSupportedIds(grid) {
+  const sup = new Set()
+
+  // Bottom row is always supported
+  for (let c = 0; c < 3; c++) {
+    if (grid[2][c]) sup.add(grid[2][c].id)
+  }
+
+  // Propagate: a card is supported if the card directly below it is supported,
+  // OR any horizontal neighbour in the same row is supported.
+  let changed = true
+  while (changed) {
+    changed = false
+    for (let r = 0; r <= 1; r++) {
+      for (let c = 0; c < 3; c++) {
+        const card = grid[r][c]
+        if (!card || sup.has(card.id)) continue
+
+        // Supported from below?
+        if (grid[r + 1][c] && sup.has(grid[r + 1][c].id)) {
+          sup.add(card.id); changed = true; continue
+        }
+        // Supported horizontally?
+        for (const dc of [-1, 1]) {
+          const nc = c + dc
+          if (nc >= 0 && nc < 3 && grid[r][nc] && sup.has(grid[r][nc].id)) {
+            sup.add(card.id); changed = true; break
+          }
+        }
+      }
+    }
+  }
+  return sup
+}
+
+/**
+ * Moves each unsupported card one row down (if the cell below is empty).
+ * Returns true if anything moved.
+ */
+function applyOneStep(grid) {
+  const sup = findSupportedIds(grid)
+  let moved = false
+
+  // Process bottom-up so a falling card doesn't block another in the same step
+  for (let r = 1; r >= 0; r--) {
+    for (let c = 0; c < 3; c++) {
+      const card = grid[r][c]
+      if (!card) continue
+      if (!sup.has(card.id) && !grid[r + 1][c]) {
+        grid[r + 1][c] = card
+        grid[r][c]     = null
+        moved = true
+
+        // Mark this card as "just landed" for the bounce animation
+        fallingIds.value = { ...fallingIds.value, [card.id]: true }
+        setTimeout(() => {
+          const copy = { ...fallingIds.value }
+          delete copy[card.id]
+          fallingIds.value = copy
+        }, GRAVITY_DELAY + 100)
+      }
+    }
+  }
+  return moved
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)) }
+
+// ── Monster helpers ───────────────────────────────────────────────────────────
+
+function bottomCards(grid) {
+  const result = []
+  for (let c = 0; c < 3; c++) {
+    if (grid[2][c]) result.push({ card: grid[2][c], col: c })
+  }
+  return result
+}
+
+/** Hides the monster behind a random bottom-row card. */
+function spawnMonsterHidden() {
+  const m    = state.monster
+  const opts = bottomCards(state.grid)
+  if (!opts.length) return          // no bottom cards left — skip
+  const pick = opts[Math.floor(Math.random() * opts.length)]
+  m.status         = 'hidden'
+  m.col            = pick.col
+  m.hiddenBehindId = pick.card.id
+}
+
+/** Called each time an answer card is successfully removed from the grid. */
+function onCardRemoved(removedId) {
+  const m = state.monster
+  if (m.status !== 'hidden') return
+  if (m.hiddenBehindId !== removedId) return
+
+  // The block hiding the monster was just blasted away!
+  m.status         = 'appeared'
+  m.hiddenBehindId = null
+  m.timeLeft       = 6
+  m.appearCount++
+
+  // Countdown tick
+  m._interval = setInterval(() => {
+    m.timeLeft = Math.max(0, m.timeLeft - 1)
+  }, 1000)
+
+  // Escape timer
+  m._timer = setTimeout(startMonsterEscape, MONSTER_TIMEOUT)
+}
+
+/** Check if a block just landed on the monster's cell. */
+function checkMonsterSquash() {
+  const m = state.monster
+  if (m.status !== 'appeared') return
+  if (state.grid[2]?.[m.col]) {
+    killMonster()
+  }
+}
+
+function killMonster() {
+  const m = state.monster
+  clearTimeout(m._timer)
+  clearInterval(m._interval)
+  m.status = 'dead'
+  state.monstersKilled++
+  playVictory()
+  launchConfetti()
+
+  setTimeout(() => {
+    m.status = 'hidden'
+    m.col    = null
+    spawnMonsterHidden()
+  }, 1800)
+}
+
+function startMonsterEscape() {
+  const m    = state.monster
+  if (m.status !== 'appeared') return
+  clearInterval(m._interval)
+
+  const opts   = bottomCards(state.grid).filter(b => b.col !== m.col)
+  if (!opts.length) {
+    // No refuge left — monster just escapes off-screen
+    m.status    = 'escaped'
+    m.escapeDir = 0
+    setTimeout(() => { m.status = 'hidden'; m.col = null; spawnMonsterHidden() }, 900)
+    return
+  }
+
+  const nearest = opts.reduce((best, cur) =>
+    Math.abs(cur.col - m.col) < Math.abs(best.col - m.col) ? cur : best
+  )
+
+  m.escapeDir      = nearest.col < m.col ? -1 : 1
+  m.status         = 'escaping'
+
+  setTimeout(() => {
+    m.status         = 'hidden'
+    m.col            = nearest.col
+    m.hiddenBehindId = nearest.card.id
+  }, 800)
+}
+
+// ── Physics simulation ────────────────────────────────────────────────────────
+
+async function runGravity(removedCardId) {
+  // Reveal monster if it was hiding behind this card
+  onCardRemoved(removedCardId)
+
+  await sleep(80)
+
+  let steps = 0
+  while (steps < 10) {
+    const moved = applyOneStep(state.grid)
+    if (!moved) break
+    checkMonsterSquash()
+    steps++
+    await sleep(GRAVITY_DELAY)
+  }
+
+  state.locked = false
+}
+
 // ── Public composable ─────────────────────────────────────────────────────────
 export function useMemory() {
 
   function startMemory(level) {
+    // Cancel any ongoing monster timers
+    clearTimeout(state.monster._timer)
+    clearInterval(state.monster._interval)
+
     const { questions, answers } = createMemoryCards(level)
+    answers.forEach(a => { a.state = 'idle' })
+    questions.forEach(q => { q.state = 'idle' })
+
     Object.assign(state, {
       level,
       questions,
       answers,
+      grid:           buildGrid(answers),
       activeQuestion: null,
-      monsterHP:      MAX_HP,
-      playerHP:       MAX_HP,
+      playerHP:       MAX_PLAYER_HP,
       locked:         false,
+      monstersKilled: 0,
     })
+
+    Object.assign(state.monster, {
+      status: 'hidden', col: null, hiddenBehindId: null,
+      timeLeft: 0, appearCount: 0, escapeDir: 0,
+      _timer: null, _interval: null,
+    })
+
+    spawnMonsterHidden()
     router.push({ name: 'memory' })
   }
 
   function selectQuestion(card) {
     if (state.locked || card.state === 'matched') return
     if (state.activeQuestion?.id === card.id) {
-      card.state = 'hidden'
+      card.state = 'idle'
       state.activeQuestion = null
       return
     }
-    if (state.activeQuestion) state.activeQuestion.state = 'hidden'
+    if (state.activeQuestion) state.activeQuestion.state = 'idle'
     card.state = 'active'
     state.activeQuestion = card
   }
 
   function selectAnswer(card) {
-    if (state.locked || card.state === 'matched') return
+    if (state.locked || card.state === 'matched' || card.state === 'exploding') return
     if (!state.activeQuestion) return
 
     const q = state.activeQuestion
-    const a = card
     state.locked = true
-    a.state = 'active'
+    card.state = 'active'
 
-    if (q.pairId === a.pairId) {
-      // Correct pair — apple flies to monster
+    if (q.pairId === card.pairId) {
+      // ── Correct! ──────────────────────────────────────────────────────────
       playSuccess()
       spawnApple(true)
-      setTimeout(() => {
-        q.state = 'matched'
-        a.state = 'matched'
-        state.activeQuestion = null
-        state.monsterHP--
-        state.locked = false
-        if (state.monsterHP <= 0) {
+      q.state    = 'matched'
+      card.state = 'exploding'
+      state.activeQuestion = null
+
+      setTimeout(async () => {
+        // Remove from grid
+        const removedId = card.id
+        for (let r = 0; r < 3; r++) {
+          for (let c = 0; c < 3; c++) {
+            if (state.grid[r]?.[c]?.id === removedId) state.grid[r][c] = null
+          }
+        }
+        card.state = 'matched'
+
+        // Run physics (unlocks state when done)
+        await runGravity(removedId)
+
+        // Victory check
+        if (state.answers.every(a => a.state === 'matched')) {
+          await sleep(300)
           playVictory()
           launchConfetti()
           router.push({ name: 'memory-victory' })
         }
-      }, 500)
+      }, EXPLOSION_DELAY)
+
     } else {
-      // Wrong — apple flies to player, reveal answer card
+      // ── Wrong ─────────────────────────────────────────────────────────────
       playError()
       spawnApple(false)
-      a.state = 'revealed'
+      card.state = 'revealed'
+
       setTimeout(() => {
-        a.state = 'hidden'
-        q.state = 'hidden'
+        card.state = 'idle'
+        q.state    = 'idle'
         state.activeQuestion = null
         state.playerHP--
         state.locked = false
-        if (state.playerHP <= 0) {
-          router.push({ name: 'memory-gameover' })
-        }
+        if (state.playerHP <= 0) router.push({ name: 'memory-gameover' })
       }, 1300)
     }
   }
 
   function goMenu() {
+    clearTimeout(state.monster._timer)
+    clearInterval(state.monster._interval)
     router.push({ name: 'menu' })
   }
 
-  function retry() {
-    startMemory(state.level)
-  }
+  function retry() { startMemory(state.level) }
 
   return {
     state,
+    fallingIds,
     currentMonster,
     monsterShaking,
     playerShaking,

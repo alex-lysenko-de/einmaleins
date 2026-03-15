@@ -12,6 +12,17 @@
   .animate-fly-arc       { animation: flyArc var(--dur,0.5s) cubic-bezier(0.25,0.46,0.45,0.94) forwards; }
   .animate-splat-fly     { animation: splatFly var(--sd,0.45s) ease-out forwards; }
 
+  /* ── Physics + Monster ── */
+  .animate-block-explode        { animation: blockExplode 0.55s ease-out forwards; }
+  .animate-block-land           { animation: blockLand    0.28s cubic-bezier(0.34,1.56,0.64,1) both; }
+  .animate-monster-pop          { animation: monsterPop   0.5s  cubic-bezier(0.34,1.56,0.64,1) both; }
+  .animate-monster-die          { animation: monsterDie   0.6s  ease-out forwards; }
+  .animate-monster-escape-left  { animation: monsterRunLeft  0.8s ease-in  forwards; }
+  .animate-monster-escape-right { animation: monsterRunRight 0.8s ease-in  forwards; }
+  .animate-monster-gone         { animation: monsterGone  0.6s ease-out forwards; }
+  .animate-timer-drain          { animation: timerDrain 6s linear forwards; }
+  .animate-peek-eyes            { animation: peekEyes 2s ease-in-out infinite; }
+
   .star-hidden { opacity: 0; transform: scale(0); transition: all 0.4s cubic-bezier(0.34,1.56,0.64,1); }
   .star-show   { opacity: 1; transform: scale(1);  transition: all 0.4s cubic-bezier(0.34,1.56,0.64,1); }
 
@@ -60,4 +71,53 @@
 @keyframes examApplePop {
   from { transform:scale(0); opacity:0; }
   to   { transform:scale(1); opacity:1; }
+}
+
+/* ── Physics block animations ── */
+@keyframes blockExplode {
+  0%   { transform: scale(1)    rotate(0deg);    opacity: 1; filter: brightness(1); }
+  30%  { transform: scale(1.15) rotate(-4deg);   opacity: 1; filter: brightness(2); }
+  60%  { transform: scale(0.8)  rotate(6deg);    opacity: 0.6; }
+  100% { transform: scale(0)    rotate(10deg);   opacity: 0; }
+}
+@keyframes blockLand {
+  0%   { transform: scaleY(0.7) scaleX(1.2); }
+  60%  { transform: scaleY(1.1) scaleX(0.95); }
+  100% { transform: scaleY(1)   scaleX(1); }
+}
+
+/* ── Monster animations ── */
+@keyframes monsterPop {
+  0%   { transform: scale(0) translateY(20px); opacity: 0; }
+  60%  { transform: scale(1.25) translateY(-6px); opacity: 1; }
+  80%  { transform: scale(0.92) translateY(2px); }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+@keyframes monsterDie {
+  0%   { transform: scale(1) rotate(0deg);   opacity: 1; }
+  20%  { transform: scale(1.4) rotate(-8deg); filter: brightness(3); }
+  50%  { transform: scale(0.5) scaleX(2) rotate(5deg); }
+  100% { transform: scale(0); opacity: 0; }
+}
+@keyframes monsterRunLeft {
+  0%   { transform: translateX(0)    rotate(0deg);   opacity: 1; }
+  50%  { transform: translateX(-20px) rotate(-15deg); opacity: 1; }
+  100% { transform: translateX(-80px) rotate(-25deg); opacity: 0; }
+}
+@keyframes monsterRunRight {
+  0%   { transform: translateX(0)    rotate(0deg);  opacity: 1; }
+  50%  { transform: translateX(20px)  rotate(15deg); opacity: 1; }
+  100% { transform: translateX(80px)  rotate(25deg); opacity: 0; }
+}
+@keyframes monsterGone {
+  0%   { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(0.3) translateY(-10px); }
+}
+@keyframes timerDrain {
+  from { width: 100%; }
+  to   { width: 0%; }
+}
+@keyframes peekEyes {
+  0%, 100% { transform: translateY(0)    scale(1); opacity: 0.7; }
+  50%       { transform: translateY(-3px) scale(1.2); opacity: 1; }
 }
