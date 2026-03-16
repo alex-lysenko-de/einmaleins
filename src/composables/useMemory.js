@@ -10,6 +10,26 @@ const MAX_PLAYER_HP    = 9
 const EXPLOSION_DELAY  = 550   // ms — block "explodes" before vanishing
 const GRAVITY_DELAY    = 700   // ms — delay between each gravity step
 const MONSTER_TIMEOUT  = 6000  // ms — monster escapes after 6 s
+const FALLING_BOUNCE   = 150   // ms — duration of the bounce animation when a block lands
+const MONSTER_SHAKE    = 300   // ms — duration of monster shake when hit
+const PLAYER_SHAKE     = 300   // ms — duration of player shake when hit
+const CONFETTI_DURATION = 2000  // ms — how long the confetti should fly after victory
+const VICTORY_DELAY    = 1800  // ms — delay between killing monster and showing victory state#
+const MONSTER_ESCAPE_DURATION = 800 // ms — duration of the monster escape animation
+const MONSTER_DEATH_DURATION = 1800 // ms — duration of the monster death animation
+const MONSTER_APPEAR_DURATION = 600 // ms — duration of the monster appear animation
+const MONSTER_SQUASH_DURATION = 500 // ms — duration of the monster squash animation
+const PLAYER_HIT_DURATION = 500 // ms — duration of the player hit animation
+const GAME_OVER_DELAY = 1500 // ms — delay between player HP reaching 0 and showing game over screen
+const ANSWER_REVEAL_DURATION = 1300 // ms — how long a wrong answer stays revealed
+const QUESTION_ACTIVE_DURATION = 2000 // ms — how long a question stays active before auto-resetting
+const ANSWER_EXPLOSION_DURATION = 550 // ms — how long the answer explosion animation lasts
+const MONSTER_ESCAPE_DELAY = 800 // ms — delay between monster starting escape and actually escaping
+const MONSTER_SPAWN_DELAY = 1000 // ms — delay between monster disappearing and respawning after being killed or escaping
+const MAX_MONSTER_TIME = 6000 // ms — maximum time the monster can stay in the appeared state before escaping
+const MIN_MONSTER_TIME = 3000 // ms — minimum time the monster stays in the appeared state before it can start escaping
+const MONSTER_ESCAPE_CHANCE = 0.5 // probability that the monster will try to escape when its time is up, instead of just escaping off-screen
+const MONSTER_ESCAPE_REFUGE_CHANCE = 0.7 // probability that the escaping monster will choose a refuge card to hide behind, if any are available
 
 // ── Singleton state ───────────────────────────────────────────────────────────
 const state = reactive({
@@ -38,7 +58,9 @@ const state = reactive({
 const fallingIds = ref({})
 
 const currentMonster = computed(() => monsterForLevel(state.level))
-const { monsterShaking, playerShaking } = useAppleAnimation()
+// TODO: don't throw the apples in this game
+const monsterShaking = computed(() => state.monster.status === 'appeared' && state.monster.timeLeft <= 2)
+const playerShaking = computed(() => state.playerHP <= 2)   
 const { launchConfetti } = useConfetti()
 
 // ── Grid helpers ──────────────────────────────────────────────────────────────
@@ -112,7 +134,7 @@ function applyOneStep(grid) {
           const copy = { ...fallingIds.value }
           delete copy[card.id]
           fallingIds.value = copy
-        }, GRAVITY_DELAY + 100)
+        }, GRAVITY_DELAY + FALLING_BOUNCE - 50)
       }
     }
   }
@@ -151,13 +173,13 @@ function onCardRemoved(removedId) {
   // The block hiding the monster was just blasted away!
   m.status         = 'appeared'
   m.hiddenBehindId = null
-  m.timeLeft       = 6
+  m.timeLeft       = MAX_MONSTER_TIME / 1000
   m.appearCount++
 
   // Countdown tick
   m._interval = setInterval(() => {
     m.timeLeft = Math.max(0, m.timeLeft - 1)
-  }, 1000)
+  }, 1000) 
 
   // Escape timer
   m._timer = setTimeout(startMonsterEscape, MONSTER_TIMEOUT)
@@ -185,7 +207,7 @@ function killMonster() {
     m.status = 'hidden'
     m.col    = null
     spawnMonsterHidden()
-  }, 1800)
+  }, MONSTER_DEATH_DURATION + MONSTER_SPAWN_DELAY)
 }
 
 function startMonsterEscape() {
@@ -198,7 +220,7 @@ function startMonsterEscape() {
     // No refuge left — monster just escapes off-screen
     m.status    = 'escaped'
     m.escapeDir = 0
-    setTimeout(() => { m.status = 'hidden'; m.col = null; spawnMonsterHidden() }, 900)
+    setTimeout(() => { m.status = 'hidden'; m.col = null; spawnMonsterHidden() }, MONSTER_ESCAPE_DURATION)
     return
   }
 
@@ -213,7 +235,7 @@ function startMonsterEscape() {
     m.status         = 'hidden'
     m.col            = nearest.col
     m.hiddenBehindId = nearest.card.id
-  }, 800)
+  }, MONSTER_ESCAPE_DURATION)
 }
 
 // ── Physics simulation ────────────────────────────────────────────────────────
@@ -222,10 +244,10 @@ async function runGravity(removedCardId) {
   // Reveal monster if it was hiding behind this card
   onCardRemoved(removedCardId)
 
-  await sleep(80)
+  await sleep(GRAVITY_DELAY)
 
   let steps = 0
-  while (steps < 10) {
+  while (steps < 10) {  // safety to prevent infinite loops
     const moved = applyOneStep(state.grid)
     if (!moved) break
     checkMonsterSquash()
@@ -292,7 +314,7 @@ export function useMemory() {
     if (q.pairId === card.pairId) {
       // ── Correct! ──────────────────────────────────────────────────────────
       playSuccess()
-      spawnApple(true)
+      //spawnApple(true)
       q.state    = 'matched'
       card.state = 'exploding'
       state.activeQuestion = null
@@ -312,7 +334,7 @@ export function useMemory() {
 
         // Victory check
         if (state.answers.every(a => a.state === 'matched')) {
-          await sleep(300)
+          await sleep(VICTORY_DELAY)
           playVictory()
           launchConfetti()
           router.push({ name: 'memory-victory' })
@@ -322,7 +344,7 @@ export function useMemory() {
     } else {
       // ── Wrong ─────────────────────────────────────────────────────────────
       playError()
-      spawnApple(false)
+      //spawnApple(false)
       card.state = 'revealed'
 
       setTimeout(() => {
@@ -332,7 +354,7 @@ export function useMemory() {
         state.playerHP--
         state.locked = false
         if (state.playerHP <= 0) router.push({ name: 'memory-gameover' })
-      }, 1300)
+      }, ANSWER_REVEAL_DURATION + ANSWER_EXPLOSION_DURATION)
     }
   }
 
